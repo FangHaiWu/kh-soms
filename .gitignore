@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+
+# dependencies
+node_modules/
+
+# build
+dist/
+build/
+.next/
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Claude
+.claude/
+
+# uploads
+uploads/
+
+# cache
+.cache/
+
+# temp
+tmp/
+temp/
+
+# OS
+Thumbs.db
