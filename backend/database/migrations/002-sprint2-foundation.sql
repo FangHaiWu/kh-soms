@@ -18,7 +18,7 @@ CREATE TABLE osint.osint_platforms (
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
-)
+);
 
 -- Bang osint_groups 
 CREATE TABLE osint.osint_groups (
@@ -37,7 +37,7 @@ CREATE TABLE osint.osint_groups (
   platform_specific_data jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
-)
+);
 
 -- Bang osint_posts
 CREATE TABLE osint.osint_posts (
@@ -65,7 +65,7 @@ CREATE TABLE osint.osint_posts (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   constraint uq_posts_platform_external unique (platform_id, external_post_id)
-)
+);
 
 -- Bang osint_comments 
 CREATE TABLE osint.osint_comments (
@@ -82,7 +82,7 @@ CREATE TABLE osint.osint_comments (
   crawled_at timestamptz default now(),
   published_at timestamptz,
   created_at TIMESTAMPTZ DEFAULT NOW()
-)
+);
 
 -- Bang osint.crawl_logs 
 CREATE TABLE osint.osint_crawl_logs (
@@ -100,7 +100,8 @@ CREATE TABLE osint.osint_crawl_logs (
   completed_at timestamptz,
   duration_ms int,
   created_at TIMESTAMPTZ DEFAULT NOW()
-)
+);
+
 -- Bang osint_post_nlp
 CREATE TABLE osint.osint_post_nlp (
   id uuid primary key default uuid_generate_v4(),
