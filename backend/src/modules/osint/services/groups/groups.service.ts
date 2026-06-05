@@ -20,7 +20,7 @@ export class GroupService {
 
   // Lay danh sach nguon tin
   async findAll(query: ListGroupsQueryDto): Promise<OsintGroup[]> {
-    this.logger.log('Bắt đầu tìm kiếm nguồn tin');
+    this.logger.log(`findAll: platform=${query.platform} isActive=${query.isActive} page=${query.page ?? 1}`);
     const { platform, isActive, tags, page, limit } = query;
     const where: any = {};
     if (platform) where.platform = { name: platform };
@@ -40,6 +40,7 @@ export class GroupService {
   // Load relation platform de tra ve thong tin platform
   // Throw NotFoundException neu khong tim thay - khong bao gio tra ve null
   async findOne(id: string): Promise<OsintGroup> {
+    this.logger.log(`findOne: id=${id}`);
     const group = await this.groupRepo.findOne({
       where: { id },
       relations: ['platform'],
@@ -52,27 +53,34 @@ export class GroupService {
   // Validate platformId ton tai trong DB truoc khi tao -> Throw NotFoundException neu khong tim thay
   // Tao entity tu dto -> save vao DB
   async create(dto: CreateGroupDto): Promise<OsintGroup> {
+    this.logger.log(`create: name="${dto.name}" platformId=${dto.platformId}`);
+
     // 1. Check platform ton tai
     const platform = await this.platformRepo.findOne({
       where: { id: dto.platformId },
     });
     if (!platform)
       throw new NotFoundException(`Platform ${dto.platformId} not found`);
+
     // 2. Tao entity tu dto
     const group = this.groupRepo.create({ ...dto });
 
     // 3. Luu vao DB
-    return this.groupRepo.save(group);
+    const saved = await this.groupRepo.save(group);
+    this.logger.log(`create: thành công id=${saved.id}`);
+    return saved;
   }
   // Update group
   // Validate platformId ton tai trong DB truoc khi tao -> Throw NotFoundException neu khong tim thay
   // Update entity tu dto -> save vao DB
 
   async update(id: string, dto: UpdateGroupDto): Promise<OsintGroup> {
-    // 1. Kiem tra group ton tai - tu thow exception neu khong tim thay
+    this.logger.log(`update: id=${id} fields=${Object.keys(dto).join(',')}`);
+
+    // 1. Kiem tra group ton tai - tu throw exception neu khong tim thay
     const group = await this.findOne(id);
 
-    // 2. Kiem tra platform ton tai
+    // 2. Kiem tra platform ton tai (chi khi client muon doi platform)
     if (dto.platformId) {
       const platform = await this.platformRepo.findOne({
         where: { id: dto.platformId },
@@ -84,17 +92,19 @@ export class GroupService {
     // 3. Merge dto vao entity (chi ghi de fields co trong dto, giu nguyen phan con lai)
     Object.assign(group, dto);
 
-    // 4. Persit - Typeorm sinh update chi cho cac fields co thay doi
+    // 4. Persist - TypeORM sinh UPDATE chi cho cac fields da thay doi
     return this.groupRepo.save(group);
   }
 
-  // toggleActive
+  // Bat/tat crawl cho group (khong can biet trang thai hien tai)
   async toggleActive(id: string): Promise<OsintGroup> {
-    // 1. Kiem tra group ton tai - tu thow exception neu khong tim thay
+    // 1. Load group — tu throw neu khong ton tai
     const group = await this.findOne(id);
 
-    // 2. toggle isActive
+    // 2. Dao trang thai: true→false hoac false→true
     group.isActive = !group.isActive;
+    this.logger.log(`toggleActive: id=${id} isActive: ${!group.isActive} → ${group.isActive}`);
+
     return this.groupRepo.save(group);
   }
 }

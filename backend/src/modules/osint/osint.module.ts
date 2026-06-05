@@ -20,6 +20,8 @@ import { SlangDictionaryService } from './services/slang-dictionary.service';
 import { AlertService } from './services/alert/alert.service';
 import { CrawlerProcessor } from './services/crawler/crawler.processor';
 import { OsintSchedulerService } from './scheduler/osint-scheduler.service';
+import { PlatformService } from './services/platform/platform.service';
+import { GroupService } from './services/groups/groups.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -47,6 +49,8 @@ import { OsintSchedulerService } from './scheduler/osint-scheduler.service';
     AlertService,
     CrawlerProcessor,
     OsintSchedulerService,
+    PlatformService,
+    GroupService,
   ],
   controllers: [OsintController],
   exports: [TypeOrmModule],
