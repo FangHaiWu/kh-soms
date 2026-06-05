@@ -74,6 +74,31 @@ Dữ liệu OSINT mặc định NB — tự động nâng cấp khi liên kết 
 - Concurrent: ≥ 200 người dùng đồng thời
 - OSINT queue riêng, không ảnh hưởng hệ thống chính
 
+### Quy tắc viết code (BẮT BUỘC)
+
+**Comment giải thích logic:**
+- Trước mỗi hàm/method: comment mô tả mục đích, input/output nếu không rõ từ tên
+- Trước các câu lệnh quan trọng (query DB, throw exception, transform data): comment 1 dòng giải thích **tại sao**, không chỉ **làm gì**
+- Các điều kiện phức tạp (`if/else` nhiều nhánh, regex, bitwise): bắt buộc có comment
+
+**Comment pipeline/flow cho hàm có nhiều bước:**
+```typescript
+// Flow: validate input → check DB → transform → save → return
+async create(dto: CreateDto): Promise<Entity> {
+  // 1. Kiểm tra dependency tồn tại (platform phải có trước khi tạo group)
+  const platform = await this.platformRepo.findOne(...);
+  if (!platform) throw new NotFoundException(...);
+
+  // 2. Tạo entity instance trong memory (chưa INSERT)
+  const entity = this.repo.create({ ...dto });
+
+  // 3. Persist vào DB, TypeORM tự gán id + timestamps
+  return this.repo.save(entity);
+}
+```
+
+**Ngôn ngữ comment:** Tiếng Việt cho logic nghiệp vụ, tiếng Anh cho technical detail.
+
 ## API Base URL
 
 ```
