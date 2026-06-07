@@ -14,32 +14,46 @@ UPDATE osint.osint_sources SET rss_feed_url='https://tuoitre.vn/rss/phap-luat.rs
   WHERE id='22222222-2222-2222-2222-222222222222';
 
 -- ---------------------------------------------------------------------
--- 2) 18 báo mới
---    a) 5 báo có RSS THẬT đã verify (is_active=true)
+-- 2) Báo mới
+--    a) Báo có RSS THẬT đã verify (is_active=true)
+--       cand.vn: verify 07/06/2026 — redirect từ cand.com.vn → cand.vn/rss/home.rss
+--       baochinhphu.vn: CHƯA verify — is_active=false, bổ sung RSS sau
 -- ---------------------------------------------------------------------
 INSERT INTO osint.osint_sources (name, url, type, rss_feed_url, is_active, crawl_interval_minutes, trust_level) VALUES
-('Báo Pháp Luật TP.HCM', 'https://plo.vn', 'news', 'https://plo.vn/rss/phap-luat-58.rss', true, 15, 4),
-('Báo Người Lao Động',   'https://nld.com.vn', 'news', 'https://nld.com.vn/rss/phap-luat.rss', true, 15, 4),
-('Báo VietNamNet',       'https://vietnamnet.vn', 'news', 'https://vietnamnet.vn/rss/phap-luat.rss', true, 15, 4),
-('Báo Dân Trí',          'https://dantri.com.vn', 'news', 'https://dantri.com.vn/rss/phap-luat.rss', true, 15, 4),
-('Báo Thanh Niên',       'https://thanhnien.vn', 'news', 'https://thanhnien.vn/rss/thoi-su/phap-luat.rss', true, 15, 4);
+('Báo Pháp Luật TP.HCM', 'https://plo.vn',         'news', 'https://plo.vn/rss/phap-luat-58.rss',              true,  15, 4),
+('Báo Người Lao Động',   'https://nld.com.vn',      'news', 'https://nld.com.vn/rss/phap-luat.rss',             true,  15, 4),
+('Báo VietNamNet',       'https://vietnamnet.vn',   'news', 'https://vietnamnet.vn/rss/phap-luat.rss',          true,  15, 4),
+('Báo Dân Trí',          'https://dantri.com.vn',   'news', 'https://dantri.com.vn/rss/phap-luat.rss',          true,  15, 4),
+('Báo Thanh Niên',       'https://thanhnien.vn',    'news', 'https://thanhnien.vn/rss/thoi-su/phap-luat.rss',   true,  15, 4),
+('Báo Công an Nhân dân', 'https://cand.vn',         'news', 'https://cand.vn/rss/home.rss',                     true,  15, 5),
+('Báo Điện tử Chính phủ','https://baochinhphu.vn',  'gov',  NULL,                                               false, 15, 5)
+ON CONFLICT (name) DO UPDATE SET
+  url                    = EXCLUDED.url,
+  rss_feed_url           = EXCLUDED.rss_feed_url,
+  is_active              = EXCLUDED.is_active,
+  trust_level            = EXCLUDED.trust_level,
+  crawl_interval_minutes = EXCLUDED.crawl_interval_minutes;
 
---    b) 13 báo chưa lộ RSS công khai (is_active=false, chờ bổ sung RSS thật)
+--    b) Báo chưa lộ RSS công khai (is_active=false, chờ bổ sung RSS thật)
 INSERT INTO osint.osint_sources (name, url, type, rss_feed_url, is_active, crawl_interval_minutes, trust_level) VALUES
-('Báo Công an Nhân dân',          'https://cand.com.vn', 'news', NULL, false, 15, 5),
-('Báo Điện tử An ninh Thủ đô',    'https://www.anninhthudo.vn', 'news', NULL, false, 15, 5),
-('Báo Công an TP.HCM',            'https://congan.com.vn', 'news', NULL, false, 15, 5),
-('Báo An ninh Hải Phòng',         'https://anhp.vn', 'news', NULL, false, 15, 5),
-('Truyền hình CAND (ANTV)',       'https://www.antv.gov.vn', 'tv', NULL, false, 15, 5),
-('Tạp chí Cảnh sát Nhân dân',     'https://csnd.vn', 'magazine', NULL, false, 30, 5),
-('Báo Pháp Luật Việt Nam',        'https://baophapluat.vn', 'news', NULL, false, 15, 5),
-('Cổng TTĐT Bộ Công an',          'https://bocongan.gov.vn', 'gov', NULL, false, 30, 5),
-('Báo Quân đội Nhân dân',         'https://www.qdnd.vn', 'news', NULL, false, 15, 5),
-('Tạp chí Quốc phòng toàn dân',   'http://tapchiqptd.vn', 'magazine', NULL, false, 30, 5),
-('Báo Quốc phòng Thủ đô',         'https://quocphongthudo.vn', 'news', NULL, false, 15, 5),
-('Báo Điện tử Chính phủ',         'https://baochinhphu.vn', 'gov', NULL, false, 15, 5),
-('Báo Tiền Phong',                'https://tienphong.vn', 'news', NULL, false, 15, 4);
-
+('Báo Điện tử An ninh Thủ đô', 'https://www.anninhthudo.vn', 'news',     NULL, false, 15, 5),
+('Báo Công an TP.HCM',         'https://congan.com.vn',      'news',     NULL, false, 15, 5),
+('Báo An ninh Hải Phòng',      'https://anhp.vn',            'news',     NULL, false, 15, 5),
+('Truyền hình CAND (ANTV)',    'https://www.antv.gov.vn',    'tv',       NULL, false, 15, 5),
+('Tạp chí Cảnh sát Nhân dân',  'https://csnd.vn',            'magazine', NULL, false, 30, 5),
+('Báo Pháp Luật Việt Nam',     'https://baophapluat.vn',     'news',     NULL, false, 15, 5),
+('Cổng TTĐT Bộ Công an',       'https://bocongan.gov.vn',    'gov',      NULL, false, 30, 5),
+('Báo Quân đội Nhân dân',      'https://www.qdnd.vn',        'news',     NULL, false, 15, 5),
+('Tạp chí Quốc phòng toàn dân','http://tapchiqptd.vn',       'magazine', NULL, false, 30, 5),
+('Báo Quốc phòng Thủ đô',      'https://quocphongthudo.vn',  'news',     NULL, false, 15, 5),
+('Báo Tiền Phong',             'https://tienphong.vn',       'news',     NULL, false, 15, 4)
+ON CONFLICT (name) DO UPDATE SET
+  url                    = EXCLUDED.url,
+  type                   = EXCLUDED.type,
+  rss_feed_url           = EXCLUDED.rss_feed_url,
+  is_active              = EXCLUDED.is_active,
+  trust_level            = EXCLUDED.trust_level,
+  crawl_interval_minutes = EXCLUDED.crawl_interval_minutes;
 -- ---------------------------------------------------------------------
 -- 3) Mẫu ALERTS thật — liên kết article ANTT đã seed (source_ref_ids = article ids)
 -- ---------------------------------------------------------------------

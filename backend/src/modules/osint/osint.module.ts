@@ -22,6 +22,8 @@ import { CrawlerProcessor } from './services/crawler/crawler.processor';
 import { OsintSchedulerService } from './scheduler/osint-scheduler.service';
 import { PlatformService } from './services/platform/platform.service';
 import { GroupService } from './services/groups/groups.service';
+import { PlatformController } from './controllers/platform.controller';
+import { GroupsController } from './controllers/groups.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -52,7 +54,7 @@ import { GroupService } from './services/groups/groups.service';
     PlatformService,
     GroupService,
   ],
-  controllers: [OsintController],
+  controllers: [OsintController, PlatformController, GroupsController],
   exports: [TypeOrmModule],
 })
 export class OsintModule {}

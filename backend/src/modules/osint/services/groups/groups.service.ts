@@ -20,7 +20,9 @@ export class GroupService {
 
   // Lay danh sach nguon tin
   async findAll(query: ListGroupsQueryDto): Promise<OsintGroup[]> {
-    this.logger.log(`findAll: platform=${query.platform} isActive=${query.isActive} page=${query.page ?? 1}`);
+    this.logger.log(
+      `findAll: platform=${query.platform} isActive=${query.isActive} page=${query.page ?? 1}`,
+    );
     const { platform, isActive, tags, page, limit } = query;
     const where: any = {};
     if (platform) where.platform = { name: platform };
@@ -103,8 +105,17 @@ export class GroupService {
 
     // 2. Dao trang thai: true→false hoac false→true
     group.isActive = !group.isActive;
-    this.logger.log(`toggleActive: id=${id} isActive: ${!group.isActive} → ${group.isActive}`);
+    this.logger.log(
+      `toggleActive: id=${id} isActive: ${!group.isActive} → ${group.isActive}`,
+    );
 
     return this.groupRepo.save(group);
+  }
+
+  async remove(id: string): Promise<{ message: string }> {
+    const group = await this.findOne(id);
+    return {
+      message: `Group "${group.name}" chưa hỗ trợ xóa cứng — dùng toggleActive để vô hiệu hóa`,
+    };
   }
 }
