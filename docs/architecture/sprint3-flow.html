@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprint 3 — Luồng xử lý OSINT (RSS + Telegram)</title>
+<style>
+  :root{
+    --rss:#16a34a; --rss-bg:#dcfce7; --rss-bd:#86efac;
+    --tg:#2563eb;  --tg-bg:#dbeafe;  --tg-bd:#93c5fd;
+    --uni:#7c3aed; --uni-bg:#ede9fe; --uni-bd:#c4b5fd;
+    --ink:#0f172a; --mut:#64748b; --line:#cbd5e1;
+    --card:#ffffff; --bg:#f1f5f9; --warn-bg:#fef9c3; --warn-bd:#fde047;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    line-height:1.55;padding:32px 16px}
+  .wrap{max-width:1080px;margin:0 auto}
+  h1{font-size:30px;margin:0 0 4px}
+  .sub{color:var(--mut);margin:0 0 28px;font-size:15px}
+  h2{font-size:20px;margin:40px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0 26px}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
+    padding:5px 12px;border-radius:20px}
+  .chip.rss{background:var(--rss-bg);color:var(--rss);border:1px solid var(--rss-bd)}
+  .chip.tg{background:var(--tg-bg);color:var(--tg);border:1px solid var(--tg-bd)}
+  .chip.uni{background:var(--uni-bg);color:var(--uni);border:1px solid var(--uni-bd)}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .dot.rss{background:var(--rss)} .dot.tg{background:var(--tg)} .dot.uni{background:var(--uni)}
+
+  .row{display:flex;gap:20px;align-items:stretch;flex-wrap:wrap}
+  .col{flex:1;min-width:260px;display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
+  .card.rss{border-top:4px solid var(--rss)}
+  .card.tg{border-top:4px solid var(--tg)}
+  .card.uni{border-top:4px solid var(--uni);background:linear-gradient(180deg,#faf5ff,#fff)}
+  .card h3{margin:0 0 6px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card .file{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+    color:var(--mut);background:var(--bg);padding:2px 7px;border-radius:6px;display:inline-block;margin-top:6px}
+  .card p{margin:6px 0 0;font-size:14px;color:#334155}
+  .arrow{text-align:center;color:var(--mut);font-size:26px;line-height:1;margin:2px 0}
+  .arrow.h{font-size:30px}
+
+  .pill{display:inline-block;font-family:ui-monospace,monospace;font-size:12px;font-weight:600;
+    background:#1e293b;color:#e2e8f0;padding:3px 9px;border-radius:6px}
+  .queue{background:#0f172a;color:#e2e8f0;border-radius:14px;padding:18px;text-align:center;
+    border:1px solid #334155}
+  .queue .lbl{font-size:13px;color:#94a3b8;margin-bottom:10px}
+  .jobs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .job{background:#334155;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600}
+  .job.rss{background:var(--rss)} .job.tg{background:var(--tg)}
+
+  ol.steps{counter-reset:s;list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
+  ol.steps li{counter-increment:s;position:relative;padding:12px 14px 12px 52px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;font-size:14px}
+  ol.steps li::before{content:counter(s);position:absolute;left:12px;top:50%;transform:translateY(-50%);
+    width:28px;height:28px;border-radius:50%;background:var(--uni);color:#fff;font-weight:700;
+    display:flex;align-items:center;justify-content:center;font-size:14px}
+  ol.steps li b{color:var(--uni)}
+  ol.steps li .skip{color:var(--mut);font-size:13px}
+
+  table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;
+    border:1px solid var(--line);font-size:14px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--bg)}
+  th{background:#f8fafc;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+  td code{font-family:ui-monospace,monospace;font-size:12.5px;color:var(--ink)}
+  tr:last-child td{border-bottom:none}
+
+  .note{background:var(--warn-bg);border:1px solid var(--warn-bd);border-radius:12px;padding:14px 18px;
+    font-size:14px;margin-top:14px}
+  .note b{color:#92400e}
+  .center{text-align:center}
+  .clock{font-size:13px;font-weight:700;background:#fff;border:1px solid var(--line);
+    border-radius:20px;padding:6px 14px;display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Sprint 3 — Luồng xử lý OSINT</h1>
+  <p class="sub">Gom <b>RSS báo chí</b> + <b>Telegram công khai</b> về một bảng thống nhất <code>osint_posts</code> để NLP / cảnh báo / báo cáo xử lý đồng nhất.</p>
+
+  <div class="legend">
+    <span class="chip rss"><span class="dot rss"></span>Nhánh RSS</span>
+    <span class="chip tg"><span class="dot tg"></span>Nhánh Telegram</span>
+    <span class="chip uni"><span class="dot uni"></span>Tầng hợp nhất (dùng chung)</span>
+  </div>
+
+  <!-- ===================== PHẦN 1: TỔNG QUAN ===================== -->
+  <h2>1 · Bức tranh tổng — 2 nguồn, 1 đích</h2>
+  <div class="row">
+    <div class="col">
+      <div class="card rss">
+        <h3>🗞️ Nguồn 1: RSS</h3>
+        <p>vnexpress, cand, tuổi trẻ… (mục Pháp luật)</p>
+        <span class="file">crawler.service.ts</span>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card tg">
+        <h3>📨 Nguồn 2: Telegram</h3>
+        <p>t.me/s/photvietnam, hongbien_ez… (preview công khai, <b>không đăng nhập</b>)</p>
+        <span class="file">telegram-public.collector.ts</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow">▼ &nbsp;&nbsp; mỗi nguồn tự "dịch" dữ liệu về cùng một hình dạng &nbsp;&nbsp; ▼</div>
+
+  <div class="card uni center">
+    <h3 style="justify-content:center">🔌 RawPost — "ổ cắm chuẩn"</h3>
+    <p>Hình dạng chung mọi nguồn phải biến về: <code>externalPostId · content · author · engagement · publishedAt · mediaUrls</code></p>
+    <span class="file">raw-post.interface.ts</span>
+  </div>
+
+  <div class="arrow">▼</div>
+
+  <div class="card uni center">
+    <h3 style="justify-content:center">🛃 PostIngestService — cửa hải quan duy nhất</h3>
+    <p>Nhận RawPost → khử trùng lặp → NLP → chấm rủi ro → lưu → cảnh báo</p>
+    <span class="file">ingest/post-ingest.service.ts</span>
+  </div>
+
+  <div class="arrow">▼</div>
+
+  <div class="card uni center" style="border:2px solid var(--uni)">
+    <h3 style="justify-content:center">📦 osint_posts</h3>
+    <p><b>BẢNG THỐNG NHẤT</b> — RSS và Telegram nằm chung, downstream không cần biết nguồn gốc.</p>
+  </div>
+
+  <!-- ===================== PHẦN 2: LUỒNG TỰ ĐỘNG ===================== -->
+  <h2>2 · Luồng tự động (chạy nền, không bấm tay)</h2>
+
+  <div class="row">
+    <div class="col">
+      <div class="card rss center"><span class="clock">⏰ @Cron mỗi 15 phút</span>
+        <p><code>scheduleCrawl()</code><br>lấy 8 nguồn RSS active</p></div>
+    </div>
+    <div class="col">
+      <div class="card tg center"><span class="clock">⏰ @Cron mỗi 30 phút</span>
+        <p><code>scheduleTelegramCrawl()</code><br>lấy channel Telegram active</p></div>
+    </div>
+  </div>
+  <div class="center" style="font-size:12px;color:var(--mut);margin-top:6px">
+    <span class="file">scheduler/osint-scheduler.service.ts</span>
+  </div>
+
+  <div class="arrow">▼ &nbsp; cả hai đẩy job vào CÙNG một hàng đợi &nbsp; ▼</div>
+
+  <div class="queue">
+    <div class="lbl">HÀNG ĐỢI Redis · BullMQ &nbsp;—&nbsp; <span class="pill">osint-crawl</span></div>
+    <div class="jobs">
+      <span class="job rss">crawl-source</span>
+      <span class="job tg">crawl-telegram-group</span>
+      <span class="job rss">crawl-source</span>
+      <span class="job tg">crawl-telegram-group</span>
+    </div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:12px">Bull tự định tuyến job theo TÊN → đúng worker</div>
+  </div>
+
+  <div class="arrow">▼</div>
+
+  <div class="row">
+    <div class="col">
+      <div class="card rss">
+        <h3>👷 CrawlerProcessor <span class="job rss" style="font-size:11px">crawl-source</span></h3>
+        <p>1 · đọc RSS → lưu <code>osint_articles</code><br>
+           2 · NLP + alert (cấp article)<br>
+           3 · map article → RawPost</p>
+        <span class="file">crawler/crawler.processor.ts</span>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card tg">
+        <h3>👷 TelegramCrawlProcessor <span class="job tg" style="font-size:11px">crawl-telegram-group</span></h3>
+        <p>1 · đọc <code>t.me/s/&lt;channel&gt;</code><br>
+           2 · parse 15–20 message<br>
+           3 · map message → RawPost</p>
+        <span class="file">crawler/telegram-crawl.processor.ts</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow">▼ &nbsp; cả hai worker cùng gọi &nbsp; ▼</div>
+  <div class="card uni center"><h3 style="justify-content:center">🛃 PostIngestService → 📦 osint_posts</h3></div>
+
+  <div class="note">
+    <b>⚠️ Vì sao RSS không bị cảnh báo TRÙNG?</b> Bài RSS đã tạo alert ở bước "cấp article" (Sprint 1).
+    Khi hợp nhất vào <code>osint_posts</code>, processor truyền cờ <code>createAlerts:false</code> → tầng ingest bỏ qua bước cảnh báo cho RSS. Telegram thì <code>true</code> (đây là đường cảnh báo duy nhất của nó).
+  </div>
+
+  <!-- ===================== PHẦN 3: 6 BƯỚC INGEST ===================== -->
+  <h2>3 · Bên trong PostIngestService — mỗi RawPost qua 6 bước</h2>
+  <ol class="steps">
+    <li><b>DEDUP</b> — đã có <code>(platform + external_id)</code> trong DB chưa? Có rồi → <span class="skip">bỏ qua (skipped++)</span></li>
+    <li><b>NLP</b> — quét từ khóa ANTT → <code>isRelevant?</code> + danh sách keyword khớp</li>
+    <li><b>SLANG</b> — quét từ lóng (ma túy, cờ bạc, tín dụng đen…)</li>
+    <li><b>RISK</b> — keyword ưu tiên cao nhất → điểm rủi ro 0…1 <span class="skip">(priority 1 = 0.9 nóng nhất … 5 = 0.15)</span></li>
+    <li><b>SAVE</b> — ghi vào <code>osint_posts</code> (content, keywords, risk, views, media, link nguồn…)</li>
+    <li><b>ALERT</b> — đủ điều kiện → tạo cảnh báo <span class="skip">(nếu createAlerts ≠ false)</span></li>
+  </ol>
+  <div class="center" style="margin-top:12px;font-size:13px;color:var(--mut)">
+    Cuối mỗi mẻ → ghi 1 dòng <code>osint_crawl_logs</code>: thu X · bỏ Y · mất Z ms (phục vụ audit & health-check)
+  </div>
+
+  <!-- ===================== PHẦN 4: BẢN ĐỒ FILE ===================== -->
+  <h2>4 · Bản đồ file — ai làm gì</h2>
+  <table>
+    <thead><tr><th>File</th><th>Vai trò</th><th>Ví như</th></tr></thead>
+    <tbody>
+      <tr><td><code>collectors/raw-post.interface.ts</code></td><td>Định nghĩa "ổ cắm chuẩn" RawPost</td><td>Bản thiết kế phích cắm</td></tr>
+      <tr><td><code>collectors/telegram-public.collector.ts</code></td><td>Đọc t.me/s, HTML → RawPost</td><td>Thợ dịch Telegram</td></tr>
+      <tr><td><code>crawler/crawler.service.ts</code></td><td>Đọc RSS XML (Sprint 1)</td><td>Thợ dịch RSS</td></tr>
+      <tr><td><code>ingest/post-ingest.service.ts</code></td><td>Nhận RawPost → nạp DB (6 bước)</td><td>Cửa hải quan duy nhất</td></tr>
+      <tr><td><code>crawler/crawler.processor.ts</code></td><td>Worker xử lý job RSS</td><td>Công nhân ca RSS</td></tr>
+      <tr><td><code>crawler/telegram-crawl.processor.ts</code></td><td>Worker xử lý job Telegram</td><td>Công nhân ca Telegram</td></tr>
+      <tr><td><code>scheduler/osint-scheduler.service.ts</code></td><td>2 đồng hồ hẹn giờ đẩy job</td><td>Quản đốc phân ca</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note" style="background:#e0f2fe;border-color:#7dd3fc">
+    <b style="color:#075985">🚧 Còn lại trong Sprint 3:</b> nhánh <b>(c) trafilatura</b> cho báo KHÔNG có RSS (vd baokhanhhoa.vn) — sẽ là collector thứ 3 (qua microservice Python), cũng đổ về cùng <code>RawPost → PostIngestService → osint_posts</code>.
+  </div>
+
+</div>
+</body>
+</html>

@@ -24,6 +24,12 @@ import { PlatformService } from './services/platform/platform.service';
 import { GroupService } from './services/groups/groups.service';
 import { PlatformController } from './controllers/platform.controller';
 import { GroupsController } from './controllers/groups.controller';
+// Sprint 3: collector Telegram public + tầng nạp dùng chung osint_posts
+import { TelegramPublicCollector } from './services/collectors/telegram-public.collector';
+import { PostIngestService } from './services/ingest/post-ingest.service';
+import { TelegramCrawlProcessor } from './services/crawler/telegram-crawl.processor';
+import { NewsExtractorBridgeService } from './services/news-extractor/news-extractor-brigde.service';
+import { NewsCrawlCollector } from './services/collectors/news-crawl.collector';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -53,6 +59,11 @@ import { GroupsController } from './controllers/groups.controller';
     OsintSchedulerService,
     PlatformService,
     GroupService,
+    TelegramPublicCollector,
+    PostIngestService,
+    TelegramCrawlProcessor,
+    NewsExtractorBridgeService,
+    NewsCrawlCollector,
   ],
   controllers: [OsintController, PlatformController, GroupsController],
   exports: [TypeOrmModule],

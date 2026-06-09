@@ -4,7 +4,7 @@
  -- Thong nhat cwarler_type: 
     -- rss	rss_feedparser	Parse XML feed, không cần browser
     -- facebook	facebook_playwright	Cần browser giả lập, không có API công khai
-    -- telegram	telegram_telethon	Dùng Telethon (Python) qua MTProto
+    -- telegram	telegram_public_preview	Scrape HTML công khai t.me/s/<channel>, KHÔNG login (thay Telethon — tuân thủ quy tắc "không đăng nhập tài khoản")
     -- tiktok	tiktok_playwright	Không có API công khai
     -- threads	threads_playwright	Không có API công khai
     -- reddit	reddit_api	Reddit có public API (r/KhanhHoa...)
@@ -26,7 +26,7 @@ INSERT INTO osint.osint_platforms (name, display_name, is_active, crawler_type, 
 ('reddit', 'Reddit', false, 'reddit_api', null, 180, 2, null),
 ('threads', 'Threads', false, 'threads_playwright', null, 180, 2, null),
 ('tiktok', 'TikTok', false, 'tiktok_playwright', null, 180, 1, null),
-('telegram', 'Telegram', true, 'telegram_telethon', null, 30, 1, null),
+('telegram', 'Telegram', true, 'telegram_public_preview', null, 30, 1, null),
 ('youtube', 'YouTube', false, 'youtube_api', null, 180, 3, null),
 ('rss', 'RSS Feed', true, 'rss_feedparser', null, 60, 5, null)
 ON CONFLICT (name) DO NOTHING;
