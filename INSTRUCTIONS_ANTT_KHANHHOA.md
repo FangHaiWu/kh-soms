@@ -857,7 +857,8 @@ Nguyên tắc bắt buộc:
 ✓ Rate limiting: không crawl quá 1 request/giây mỗi domain
 ✓ Lưu URL nguồn, không tái bản nguyên văn
 ✓ Dữ liệu chỉ dùng nội bộ phục vụ ANTT, không chia sẻ thứ 3
-✓ Tuân thủ Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân
+✓ Tuân thủ Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15 (hiệu lực 01/01/2026)
+  + Nghị định 356/2025/NĐ-CP hướng dẫn (thay khung Nghị định 13/2023/NĐ-CP)
 ✓ Không thu thập, lưu trữ thông tin cá nhân không liên quan ANTT
 ```
 
@@ -1088,7 +1089,7 @@ GET    /reports/:id/download  # Tải báo cáo
 ## VII. CÁC ĐIỂM CẦN LƯU Ý ĐẶC BIỆT
 
 ### 7.1 Pháp lý & Đạo đức
-- Mọi truy cập, xử lý dữ liệu cá nhân phải tuân thủ **Nghị định 13/2023/NĐ-CP** về bảo vệ dữ liệu cá nhân
+- Mọi truy cập, xử lý dữ liệu cá nhân phải tuân thủ **Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15** (hiệu lực 01/01/2026) và **Nghị định 356/2025/NĐ-CP** hướng dẫn thi hành (khung pháp lý này thay thế Nghị định 13/2023/NĐ-CP)
 - Dữ liệu tội phạm phải được bảo vệ theo Luật Công an nhân dân và các quy định của Bộ Công an
 - Không dùng AI để ra quyết định tự động ảnh hưởng quyền con người — AI chỉ **HỖ TRỢ** ra quyết định
 - Mọi dự báo AI phải có kèm độ tin cậy (confidence score) và khuyến nghị xác minh

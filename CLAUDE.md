@@ -114,7 +114,7 @@ Auth: Bearer Token (JWT)
 
 - Chỉ thu thập nội dung **công khai**, không đăng nhập tài khoản
 - Tuân thủ robots.txt, rate limit ≤ 1 req/giây mỗi domain
-- Tuân thủ Nghị định 13/2023/NĐ-CP bảo vệ dữ liệu cá nhân
+- Tuân thủ Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15 (hiệu lực 01/01/2026) + Nghị định 356/2025/NĐ-CP
 - AI chỉ **hỗ trợ** ra quyết định — không tự động ra quyết định ảnh hưởng quyền con người
 
 ## Nguồn tài liệu
