@@ -1,6 +1,6 @@
 # 🛡️ PROJECT INSTRUCTIONS
 ## Hệ thống Phần mềm Hỗ trợ Bảo đảm An ninh, Trật tự
-### Tỉnh Khánh Hòa (sau sáp nhập) — Phiên bản 1.1
+### Tỉnh Khánh Hòa (sau sáp nhập) — Phiên bản 1.2
 
 ---
 
@@ -448,7 +448,8 @@ Cập nhật: Tự động theo chu kỳ (daily/weekly)
 | Risk Scoring | Chấm điểm nguy cơ tái phạm | Random Forest, Logistic Regression |
 | Network Analysis | Phát hiện nhóm tội phạm mới | Graph Neural Network |
 | Anomaly Detection | Cảnh báo bất thường | Isolation Forest |
-| **Sentiment Analysis** | **Phát hiện xu hướng bất ổn từ MXH** ← MỚI | **NLP, BERT multilingual** |
+| **Relevance & Topic Classification** | **Tự động xác định nội dung liên quan ANTT, phân loại chủ đề** ← v1.2 | **PhoBERT fine-tuned (xem 9.3.1, 9.9)** |
+| **Sentiment Analysis** | **Phát hiện xu hướng bất ổn từ MXH** ← MỚI | **PhoBERT fine-tuned (cùng microservice trên)** |
 
 #### 4.4 Hệ thống cảnh báo sớm (Early Warning System)
 
@@ -460,6 +461,8 @@ Cập nhật: Tự động theo chu kỳ (daily/weekly)
 📋 TRUNG BÌNH (vàng): Xu hướng tăng liên tục ≥ 7 ngày
 ℹ️  THÔNG TIN (xanh): Thay đổi đáng chú ý cần theo dõi
 ```
+
+> **Lưu ý (v1.2):** Các ngưỡng trên áp dụng cho cảnh báo *thống kê tổng hợp*. Mức cảnh báo cho **từng bài OSINT** được tính theo công thức scoring tổng hợp tại Mục 9.3.1 (Tầng 2) — không chỉ dựa khớp từ khóa đơn lẻ.
 
 ---
 
@@ -642,6 +645,38 @@ Các diễn đàn:
        Push alert đến cán bộ phụ trách (nếu vượt ngưỡng)
        Hiển thị trong dashboard & digest sáng
 ```
+
+#### 9.3.1 Kiến trúc NLP phân tầng *(bổ sung v1.2)*
+
+Các bước [2], [3], [5] ở trên được triển khai theo **3 tầng** — tầng trước lọc rẻ và nhanh cho tầng sau đắt và chính xác:
+
+```
+TẦNG 0 — GATING (rule-based, trong NestJS worker)            [Phase 2 — đã có]
+│  Khớp từ khóa + từ lóng theo TỪ ĐÃ TÁCH (underthesea/VnCoreNLP),
+│  không khớp chuỗi con (tránh "đá" khớp nhầm trong "đá bóng")
+│  Mục tiêu: recall cao, loại nhanh bài chắc chắn không liên quan
+▼
+TẦNG 1 — NLP MICROSERVICE (Python/FastAPI, đặt trong DMZ)    [Phase 3]
+│  PhoBERT fine-tune trên dataset ANTT gán nhãn (xem 9.9), 4 nhiệm vụ
+│  theo thứ tự ưu tiên triển khai:
+│   a. Phân loại LIÊN QUAN ANTT (binary) → relevance_score 0–1
+│   b. Phân loại CHỦ ĐỀ multi-label theo 8 nhóm tại Module 2.1
+│   c. NER: người / địa điểm / tổ chức → khớp đối tượng, địa bàn
+│   d. Sentiment (ưu tiên thấp nhất)
+│  NestJS gọi qua HTTP nội bộ hoặc queue; chỉ bài vượt Tầng 0 mới vào
+▼
+TẦNG 2 — ALERT SCORING (score tổng hợp + rule, NestJS)       [Phase 3]
+   severity = f(relevance_score, chủ đề, priority từ khóa,
+                khớp địa bàn Khánh Hòa, trust_level nguồn,
+                virality/engagement, từ lóng có ngữ cảnh)
+   Cán bộ xác nhận (ack) — AI chỉ HỖ TRỢ, không tự quyết
+```
+
+**Nguyên tắc bắt buộc:**
+- Từ lóng chỉ kích hoạt cảnh báo khi khớp theo từ đã tách **VÀ** có ngữ cảnh phù hợp trong cùng câu/đoạn (ví dụ "đá" phải đi kèm ngữ cảnh ma túy, giao dịch), hoặc câu chứa từ lóng được Tầng 1 xác nhận liên quan ANTT.
+- Model chạy **on-premise** (1 GPU đủ cho PhoBERT-base) — không gọi API cloud.
+- LLM local (tóm tắt, hỗ trợ case mơ hồ) là tùy chọn ở Phase 4 — **không** nằm trên đường quyết định cảnh báo.
+- Mọi model chỉ lên production khi vượt KPI chất lượng tại Mục 9.9.
 
 #### 9.4 Bộ từ khóa theo dõi (Keyword Dictionary)
 
@@ -826,6 +861,37 @@ Nguyên tắc bắt buộc:
 ✓ Không thu thập, lưu trữ thông tin cá nhân không liên quan ANTT
 ```
 
+#### 9.9 Bảo đảm chất lượng NLP — Dataset, Đánh giá, Vòng phản hồi *(bổ sung v1.2 — BẮT BUỘC trước production)*
+
+> **Nguyên tắc:** không có dataset gán nhãn và bộ đo thì không có "phân loại chính xác". Đây là **critical path** của toàn bộ năng lực OSINT — model tốt đến đâu cũng phụ thuộc vào chất lượng nhãn, và việc gán nhãn cần thời gian của cán bộ nghiệp vụ (không phải của dev) nên phải khởi động sớm, chạy song song với phát triển.
+
+**a) Xây dựng dataset gán nhãn (khởi động ngay trong Phase 2):**
+- Nguồn: chính kho `osint_articles` đang crawl tích lũy hàng ngày
+- Khối lượng mục tiêu: **2.000–5.000 bài**, do cán bộ nghiệp vụ gán nhãn
+- Nhãn cần gán:
+  1. Liên quan ANTT: có / không
+  2. Chủ đề (multi-label) theo 8 nhóm tại Module 2.1
+  3. Thực thể người / địa điểm / tổ chức (tập con ~500–1.000 bài cho NER)
+- Chia tập: train 70% / validation 15% / **test 15% (bộ vàng — khóa lại, không dùng huấn luyện)**
+- Công cụ gán nhãn: Label Studio (on-premise) hoặc UI nội bộ đơn giản
+
+**b) KPI chất lượng đầu ra (cổng chặn trước khi lên production):**
+
+| Nhiệm vụ | Chỉ số | Ngưỡng tối thiểu |
+|----------|--------|------------------|
+| Liên quan ANTT (binary) | Precision / Recall | ≥ 90% / ≥ 85% |
+| Phân loại chủ đề | F1 (macro) | ≥ 80% |
+| NER (người, địa điểm) | F1 | ≥ 85% |
+| Cảnh báo critical sai (false positive) | Tỷ lệ trên bộ vàng | ≤ 5% |
+
+- Chạy đánh giá trên bộ vàng **mỗi lần** thay model, từ điển từ khóa hoặc từ điển lóng; lưu kết quả để phát hiện hồi quy.
+- Mọi điểm số model trả về kèm confidence — hiển thị cho cán bộ theo nguyên tắc "AI chỉ hỗ trợ".
+
+**c) Vòng phản hồi (human-in-the-loop):**
+- Cán bộ **ack / bác bỏ / sửa nhãn** alert ngay trên UI (tận dụng cột `reviewed_by`, `review_note` có sẵn trong schema)
+- Alert bị bác bỏ hoặc sửa nhãn → tự động trở thành mẫu huấn luyện bổ sung
+- Chu kỳ retrain: **hàng quý**, hoặc sớm hơn khi precision đo trên phản hồi thực tế tụt > 5 điểm %
+
 ---
 
 ## IV. YÊU CẦU BẢO MẬT & PHÂN QUYỀN
@@ -876,7 +942,11 @@ Audit Log:      Ghi nhận mọi thao tác đọc/ghi dữ liệu nhạy cảm
 🔄 Tìm kiếm nâng cao, tra cứu đa chiều
 🔄 Phân tích liên kết đối tượng (graph)
 🔄 Bản đồ số tích hợp (ranh giới mới sau sáp nhập)
-🔄 OSINT Media cơ bản: crawl báo chí + phân loại chủ đề
+✅ OSINT Media cơ bản: crawl báo chí RSS + gating từ khóa (Tầng 0)
+🔄 Nâng cấp matching Tầng 0: tách từ tiếng Việt (underthesea),
+   khớp theo ranh giới từ — sửa lỗi khớp chuỗi con (từ lóng "đá"...)
+🔄 KHỞI ĐỘNG GÁN NHÃN dataset ANTT (xem 9.9a) — chạy song song,
+   do cán bộ nghiệp vụ thực hiện trên dữ liệu đã crawl ← critical path
 🔄 Hệ thống cảnh báo sớm
 🔄 Báo cáo tự động
 🔄 Mobile-responsive UI
@@ -884,6 +954,11 @@ Audit Log:      Ghi nhận mọi thao tác đọc/ghi dữ liệu nhạy cảm
 
 ### Phase 3 — OSINT & Phân tích nâng cao (Tháng 7-9)
 ```
+⏳ NLP Microservice (Tầng 1): PhoBERT fine-tuned, triển khai theo thứ tự
+   relevance → topic → NER → sentiment; mỗi model phải vượt KPI 9.9b
+   (chuyển từ Phase 2: "phân loại chủ đề" nay là deliverable Tầng 1)
+⏳ Alert scoring tổng hợp (Tầng 2) + UI ack/bác bỏ/sửa nhãn của cán bộ
+⏳ Vòng phản hồi human-in-the-loop: phản hồi cán bộ → kho mẫu retrain (9.9c)
 ⏳ OSINT MXH: Facebook, TikTok public
 ⏳ OSINT cá nhân (subject enrichment)
 ⏳ Hotspot analysis
@@ -899,6 +974,9 @@ Audit Log:      Ghi nhận mọi thao tác đọc/ghi dữ liệu nhạy cảm
 ⏳ App mobile cho cán bộ tuần tra
 ⏳ API mở cho các đơn vị liên quan
 ⏳ OSINT: nhận diện hình ảnh, video deepfake detection
+⏳ LLM local (tùy chọn): tóm tắt OSINT, hỗ trợ case mơ hồ —
+   ngoài đường quyết định cảnh báo (xem 9.3.1)
+⏳ Vận hành chu trình retrain định kỳ hàng quý từ phản hồi cán bộ
 ⏳ Tối ưu hiệu năng, scale
 ⏳ Đánh giá, điều chỉnh theo thực tế
 ```
@@ -1026,4 +1104,5 @@ GET    /reports/:id/download  # Tải báo cáo
 ---
 
 *Tài liệu này là nền tảng sống — cập nhật liên tục theo quá trình phát triển dự án.*
-*Phiên bản: 1.1 | Cập nhật: 05/2026 | Thay đổi: Địa bàn sau sáp nhập, OSINT cá nhân, OSINT Media*
+*Phiên bản: 1.2 | Cập nhật: 06/2026 | Thay đổi: Kiến trúc NLP phân tầng (9.3.1), dataset gán nhãn & KPI chất lượng & vòng phản hồi (9.9), điều chỉnh lộ trình Phase 2-4*
+*Phiên bản 1.1 | 05/2026: Địa bàn sau sáp nhập, OSINT cá nhân, OSINT Media*

@@ -85,9 +85,15 @@ Auth: Bearer Token (JWT)
 ## Các module theo lộ trình phát triển
 
 **Phase 1 (Tháng 1-3):** Auth, Users, Subjects CRUD, Incidents cơ bản, Dashboard  
-**Phase 2 (Tháng 4-6):** Search nâng cao, Graph liên kết, Map, OSINT Media cơ bản, Cảnh báo  
-**Phase 3 (Tháng 7-9):** OSINT MXH, Subject enrichment, Hotspot, Dự báo AI, Chatbot  
-**Phase 4 (Tháng 10-12):** Camera AI, Mobile app, API mở, Deepfake detection
+**Phase 2 (Tháng 4-6):** Search nâng cao, Graph liên kết, Map, OSINT Media cơ bản (crawl + gating Tầng 0, tách từ tiếng Việt), khởi động gán nhãn dataset ANTT, Cảnh báo  
+**Phase 3 (Tháng 7-9):** NLP Microservice PhoBERT (relevance → topic → NER, phải vượt KPI chất lượng), Alert scoring tổng hợp + vòng phản hồi, OSINT MXH, Subject enrichment, Hotspot, Dự báo AI, Chatbot  
+**Phase 4 (Tháng 10-12):** Camera AI, Mobile app, API mở, Deepfake detection, LLM local (tùy chọn), retrain định kỳ
+
+### Kiến trúc NLP phân tầng cho OSINT (xem 9.3.1, 9.9 trong INSTRUCTIONS)
+- **Tầng 0** (NestJS): gating từ khóa/từ lóng theo từ đã tách (underthesea) — KHÔNG khớp chuỗi con
+- **Tầng 1** (Python/FastAPI trong DMZ): PhoBERT fine-tuned — relevance score 0-1, topic 8 nhóm, NER, sentiment
+- **Tầng 2** (NestJS): alert severity = score tổng hợp (relevance + địa bàn + trust_level nguồn + virality + slang có ngữ cảnh); cán bộ ack
+- **Cổng chất lượng:** model chỉ lên production khi vượt KPI trên bộ test vàng (relevance P≥90%/R≥85%, topic F1≥80%, NER F1≥85%, critical FP≤5%)
 
 ## Người dùng hệ thống
 
