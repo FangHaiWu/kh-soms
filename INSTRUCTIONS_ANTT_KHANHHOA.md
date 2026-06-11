@@ -675,7 +675,7 @@ TẦNG 2 — ALERT SCORING (score tổng hợp + rule, NestJS)       [Phase 3]
 **Nguyên tắc bắt buộc:**
 - Từ lóng chỉ kích hoạt cảnh báo khi khớp theo từ đã tách **VÀ** có ngữ cảnh phù hợp trong cùng câu/đoạn (ví dụ "đá" phải đi kèm ngữ cảnh ma túy, giao dịch), hoặc câu chứa từ lóng được Tầng 1 xác nhận liên quan ANTT.
 - Model chạy **on-premise** (1 GPU đủ cho PhoBERT-base) — không gọi API cloud.
-- LLM local (tóm tắt, hỗ trợ case mơ hồ) là tùy chọn ở Phase 4 — **không** nằm trên đường quyết định cảnh báo.
+- LLM local là **thành phần chính thức** (chốt 06/2026): tóm tắt OSINT (`osintSummary`, digest sáng), AI Chatbot nghiệp vụ (Module 6.3), hỗ trợ case mơ hồ. Chạy on-premise qua Ollama/llama.cpp (7–14B quantize, ưu tiên model mạnh tiếng Việt như Qwen2.5-Instruct). Tuy nhiên LLM vẫn **không** nằm trên đường quyết định cảnh báo — phân loại và severity là việc của PhoBERT (Tầng 1) + scoring (Tầng 2), vì cần kết quả xác định, đo được, không bịa (hallucination).
 - Mọi model chỉ lên production khi vượt KPI chất lượng tại Mục 9.9.
 
 #### 9.4 Bộ từ khóa theo dõi (Keyword Dictionary)
@@ -963,7 +963,7 @@ Audit Log:      Ghi nhận mọi thao tác đọc/ghi dữ liệu nhạy cảm
 ⏳ OSINT cá nhân (subject enrichment)
 ⏳ Hotspot analysis
 ⏳ Mô hình dự báo tội phạm + sentiment analysis
-⏳ AI Chatbot hỗ trợ nghiệp vụ (tích hợp OSINT)
+⏳ AI Chatbot hỗ trợ nghiệp vụ (tích hợp OSINT, dùng LLM local)
 ⏳ Điều phối lực lượng thông minh
 ⏳ Tích hợp CSDL quốc gia
 ```
@@ -974,8 +974,8 @@ Audit Log:      Ghi nhận mọi thao tác đọc/ghi dữ liệu nhạy cảm
 ⏳ App mobile cho cán bộ tuần tra
 ⏳ API mở cho các đơn vị liên quan
 ⏳ OSINT: nhận diện hình ảnh, video deepfake detection
-⏳ LLM local (tùy chọn): tóm tắt OSINT, hỗ trợ case mơ hồ —
-   ngoài đường quyết định cảnh báo (xem 9.3.1)
+⏳ LLM local (chính thức): tóm tắt OSINT, chatbot nghiệp vụ, hỗ trợ
+   case mơ hồ — ngoài đường quyết định cảnh báo (xem 9.3.1)
 ⏳ Vận hành chu trình retrain định kỳ hàng quý từ phản hồi cán bộ
 ⏳ Tối ưu hiệu năng, scale
 ⏳ Đánh giá, điều chỉnh theo thực tế

@@ -87,7 +87,7 @@ Auth: Bearer Token (JWT)
 **Phase 1 (Tháng 1-3):** Auth, Users, Subjects CRUD, Incidents cơ bản, Dashboard  
 **Phase 2 (Tháng 4-6):** Search nâng cao, Graph liên kết, Map, OSINT Media cơ bản (crawl + gating Tầng 0, tách từ tiếng Việt), khởi động gán nhãn dataset ANTT, Cảnh báo  
 **Phase 3 (Tháng 7-9):** NLP Microservice PhoBERT (relevance → topic → NER, phải vượt KPI chất lượng), Alert scoring tổng hợp + vòng phản hồi, OSINT MXH, Subject enrichment, Hotspot, Dự báo AI, Chatbot  
-**Phase 4 (Tháng 10-12):** Camera AI, Mobile app, API mở, Deepfake detection, LLM local (tùy chọn), retrain định kỳ
+**Phase 4 (Tháng 10-12):** Camera AI, Mobile app, API mở, Deepfake detection, LLM local (chính thức — tóm tắt, chatbot; ngoài đường quyết định cảnh báo), retrain định kỳ
 
 ### Kiến trúc NLP phân tầng cho OSINT (xem 9.3.1, 9.9 trong INSTRUCTIONS)
 - **Tầng 0** (NestJS): gating từ khóa/từ lóng theo từ đã tách (underthesea) — KHÔNG khớp chuỗi con
