@@ -892,6 +892,45 @@ Nguyên tắc bắt buộc:
 - Alert bị bác bỏ hoặc sửa nhãn → tự động trở thành mẫu huấn luyện bổ sung
 - Chu kỳ retrain: **hàng quý**, hoặc sớm hơn khi precision đo trên phản hồi thực tế tụt > 5 điểm %
 
+#### 9.10 Kiến trúc mở rộng — OSINT chuyên biệt theo hệ nghiệp vụ *(bổ sung v1.2)*
+
+> **Định hướng dài hạn:** hệ thống sẽ mở rộng thành các phân hệ OSINT chuyên biệt theo
+> hệ nghiệp vụ: **hệ hình sự, hệ ma túy, hệ an ninh mạng, hệ quản lý hành chính...**
+> Mỗi phân hệ phục vụ một phòng nghiệp vụ với nguồn riêng, từ điển riêng, alert riêng.
+
+**a) Nguyên tắc kiến trúc (BẮT BUỘC tuân thủ từ Phase 3):**
+
+```
+MỘT HỆ CHUYÊN BIỆT = MỘT GÓI CẤU HÌNH chạy trên pipeline chung
+                       — KHÔNG fork code, KHÔNG pipeline riêng
+```
+
+| Thành phần gói cấu hình | Cơ chế có sẵn trong codebase |
+|--------------------------|------------------------------|
+| Bộ nguồn theo dõi riêng | `osint_sources` (type, trust_level, interval per-source) |
+| Bộ từ khóa riêng | `osint_keywords.category` + `scope` + `region` |
+| Bộ từ lóng riêng | `osint_slang_dictionary.category` |
+| Nhãn chủ đề tương ứng | Tầng 1 multi-label theo 8 nhóm Module 2.1 |
+| Định tuyến alert đến phòng | `alert_routing_rules` + cột `domain` (xây ở Phase 3) |
+| Phân quyền xem theo hệ | RBAC/ABAC theo phòng nghiệp vụ (đã có khung) |
+
+- **Cấm hard-code logic theo hệ** trong processor/AlertService (kiểu `if (topic === 'ma_tuy')` rải trong code). Mọi khác biệt giữa các hệ phải nằm trong **dữ liệu cấu hình**.
+- Bộ phân loại chủ đề Tầng 1 chính là **bộ định tuyến**: chủ đề Hình sự → hệ hình sự, Ma túy → hệ ma túy, Mạng → hệ ANM... Vì vậy nhãn chủ đề trong dataset 9.9a phải bám đúng 8 nhóm — nhãn chủ đề hôm nay là nhãn hệ ngày mai.
+- NLP microservice giữ hợp đồng API đa nhiệm vụ — thêm classifier/NER cho hệ mới không đổi giao tiếp với NestJS.
+
+**b) Thay đổi schema cần làm ở Phase 3 (khi xây Tầng 2):**
+- Thêm cột `domain` (hệ nghiệp vụ) vào `osint_alerts`
+- Bảng mới `alert_routing_rules`: (domain × chủ đề × địa bàn × ngưỡng severity) → đơn vị/phòng nhận alert
+
+**c) Lộ trình triển khai từng hệ (Phase 4 trở đi, theo độ khó tăng dần):**
+
+| Thứ tự | Hệ | Độ khó | Tái dùng | Việc làm thêm chính |
+|--------|-----|--------|----------|---------------------|
+| 1 | **Ma túy** | Dễ nhất | ~85–90% | Mở rộng từ điển lóng, nguồn MXH, làm giàu nhãn ma túy trong dataset |
+| 2 | **Hình sự** | Dễ | ~85% | Gần như chỉ cấu hình + routing (keyword `crime_types`, nguồn báo chí đã chạy) |
+| 3 | **An ninh mạng** | Trung bình | ~60–70% | Loại nguồn mới (forum, Telegram, paste/breach — móc sẵn `emailBreaches`, `knownDomains`, `ipHistory` ở Module 1.3); NER kỹ thuật (IP, domain, ví crypto, STK) |
+| 4 | **Quản lý hành chính** | Khác bản chất | ~50% | OSINT đóng vai phụ (dư luận, phản ánh công dân); giá trị chính từ dữ liệu nội bộ — đặt kỳ vọng riêng |
+
 ---
 
 ## IV. YÊU CẦU BẢO MẬT & PHÂN QUYỀN
@@ -958,6 +997,8 @@ Audit Log:      Ghi nhận mọi thao tác đọc/ghi dữ liệu nhạy cảm
    relevance → topic → NER → sentiment; mỗi model phải vượt KPI 9.9b
    (chuyển từ Phase 2: "phân loại chủ đề" nay là deliverable Tầng 1)
 ⏳ Alert scoring tổng hợp (Tầng 2) + UI ack/bác bỏ/sửa nhãn của cán bộ
+   — kèm cột `domain` + bảng `alert_routing_rules` mở đường cho OSINT
+   chuyên biệt theo hệ nghiệp vụ (xem 9.10b)
 ⏳ Vòng phản hồi human-in-the-loop: phản hồi cán bộ → kho mẫu retrain (9.9c)
 ⏳ OSINT MXH: Facebook, TikTok public
 ⏳ OSINT cá nhân (subject enrichment)
@@ -976,6 +1017,8 @@ Audit Log:      Ghi nhận mọi thao tác đọc/ghi dữ liệu nhạy cảm
 ⏳ OSINT: nhận diện hình ảnh, video deepfake detection
 ⏳ LLM local (chính thức): tóm tắt OSINT, chatbot nghiệp vụ, hỗ trợ
    case mơ hồ — ngoài đường quyết định cảnh báo (xem 9.3.1)
+⏳ OSINT chuyên biệt theo hệ nghiệp vụ — rollout dạng gói cấu hình,
+   thứ tự: ma túy → hình sự → an ninh mạng → hành chính (xem 9.10c)
 ⏳ Vận hành chu trình retrain định kỳ hàng quý từ phản hồi cán bộ
 ⏳ Tối ưu hiệu năng, scale
 ⏳ Đánh giá, điều chỉnh theo thực tế
@@ -1104,5 +1147,5 @@ GET    /reports/:id/download  # Tải báo cáo
 ---
 
 *Tài liệu này là nền tảng sống — cập nhật liên tục theo quá trình phát triển dự án.*
-*Phiên bản: 1.2 | Cập nhật: 06/2026 | Thay đổi: Kiến trúc NLP phân tầng (9.3.1), dataset gán nhãn & KPI chất lượng & vòng phản hồi (9.9), điều chỉnh lộ trình Phase 2-4*
+*Phiên bản: 1.2 | Cập nhật: 06/2026 | Thay đổi: Kiến trúc NLP phân tầng (9.3.1), dataset gán nhãn & KPI chất lượng & vòng phản hồi (9.9), kiến trúc mở rộng OSINT theo hệ nghiệp vụ (9.10), LLM local chính thức, điều chỉnh lộ trình Phase 2-4*
 *Phiên bản 1.1 | 05/2026: Địa bàn sau sáp nhập, OSINT cá nhân, OSINT Media*
