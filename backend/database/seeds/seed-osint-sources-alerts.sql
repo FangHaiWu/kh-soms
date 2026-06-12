@@ -76,3 +76,14 @@ VALUES
  'Từ khóa "triệt phá" xuất hiện — bài về website vi phạm bản quyền bị triệt phá vẫn tái lập.',
  ARRAY(SELECT id FROM osint.osint_articles WHERE url LIKE '%web-lau-bi-triet-pha%'),
  true);
+
+-- Bổ sung Trang chuyên mục các Báo điện tử không RSS
+-- Báo Pháp luật Việt Nam -> Pháp luật - tin nóng
+INSERT INTO osint.osint_sources (name, url, type, rss_feed_url, is_active, crawl_interval_minutes, trust_level) VALUES
+('Báo Pháp luật Việt Nam', 'https://baophapluat.vn/chuyen-muc/phap-luat-tin-nong', 'news', NULL, false, 60, 5)
+ON CONFLICT (name) DO NOTHING;
+
+-- Báo Khánh Hòa -> Pháp Luật -> An ninh - trật tự 
+INSERT INTO osint.osint_sources (name, url, type, rss_feed_url, is_active, crawl_interval_minutes, trust_level) VALUES
+('Báo Khánh Hòa/Pháp luật/An ninh - trật tự', 'https://baokhanhhoa.vn/phap-luat/an-ninh-trat-tu/', 'news', NULL, false, 60, 5)
+ON CONFLICT (name) DO NOTHING;

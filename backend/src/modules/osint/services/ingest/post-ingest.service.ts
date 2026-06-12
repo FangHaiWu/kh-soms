@@ -83,7 +83,7 @@ export class PostIngestService {
    */
   async ingest(
     rawPosts: RawPost[],
-    ctx: IngestContext,
+    ctx: IngestContext, // platform, crawl_type, group_id, create_alerts
   ): Promise<IngestSummary> {
     const startedAt = new Date();
     const summary: IngestSummary = {

@@ -1,7 +1,7 @@
 // Boot Nest context de lay service qua DI, goi thu extract 1 url baokhanhhoa
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
-import { NewsExtractorBridgeService } from '../modules/osint/services/news-extractor/news-extractor-brigde.service';
+import { NewsExtractorBridgeService } from '../modules/osint/services/news-extractor/news-extractor-bridge.service';
 
 async function main() {
   const app = await NestFactory.createApplicationContext(AppModule);

@@ -28,8 +28,9 @@ import { GroupsController } from './controllers/groups.controller';
 import { TelegramPublicCollector } from './services/collectors/telegram-public.collector';
 import { PostIngestService } from './services/ingest/post-ingest.service';
 import { TelegramCrawlProcessor } from './services/crawler/telegram-crawl.processor';
-import { NewsExtractorBridgeService } from './services/news-extractor/news-extractor-brigde.service';
+import { NewsExtractorBridgeService } from './services/news-extractor/news-extractor-bridge.service';
 import { NewsCrawlCollector } from './services/collectors/news-crawl.collector';
+import { NewsCrawlProcessor } from './services/crawler/news-crawl.processor';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -64,6 +65,7 @@ import { NewsCrawlCollector } from './services/collectors/news-crawl.collector';
     TelegramCrawlProcessor,
     NewsExtractorBridgeService,
     NewsCrawlCollector,
+    NewsCrawlProcessor,
   ],
   controllers: [OsintController, PlatformController, GroupsController],
   exports: [TypeOrmModule],

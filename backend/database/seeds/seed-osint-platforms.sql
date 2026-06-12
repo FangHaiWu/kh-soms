@@ -30,3 +30,16 @@ INSERT INTO osint.osint_platforms (name, display_name, is_active, crawler_type, 
 ('youtube', 'YouTube', false, 'youtube_api', null, 180, 3, null),
 ('rss', 'RSS Feed', true, 'rss_feedparser', null, 60, 5, null)
 ON CONFLICT (name) DO NOTHING;
+
+
+-- Bổ sung thêm 1 platform: Web news
+INSERT INTO osint.osint_platforms (name, display_name, is_active, crawler_type, platform_settings, crawl_interval_minutes_default, trust_level, documentation_url ) VALUES
+('web_news', 'Báo điện tử (Không RSS)', true, 'web_tràilatura', null, 60, 5, null)
+ON CONFLICT (name) DO NOTHING;
+
+-- Sửa lỗi thông tin cột crawler_type 
+INSERT INTO osint.osint_platforms (name, display_name, is_active, crawler_type, platform_settings, crawl_interval_minutes_default, trust_level, documentation_url ) VALUES
+('web_news', 'Báo điện tử (Không RSS)', true, 'web_trafilatura', null, 60, 5, null)
+ON CONFLICT (name)
+DO UPDATE SET 
+    crawler_type = EXCLUDED.crawler_type;

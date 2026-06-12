@@ -5,7 +5,11 @@ import { RawPost, CollectorResult } from './raw-post.interface';
 import {
   ExtractedArticle,
   NewsExtractorBridgeService,
-} from '../news-extractor/news-extractor-brigde.service';
+} from '../news-extractor/news-extractor-bridge.service';
+
+export type DiscoveryConfig =
+  | { method: 'selector'; linkSelector: string; urlPattern: string }
+  | { method: 'sitemap' };
 @Injectable()
 export class NewsCrawlCollector {
   private readonly logger = new Logger(NewsCrawlCollector.name);
@@ -26,19 +30,52 @@ collect(categoryUrl)
   → 5. return CollectorResult { sourceLabel, posts, ok }
 */
 
-  async collect(categoryUrl: string): Promise<CollectorResult> {
+  async collect(
+    entryUrl: string,
+    config: DiscoveryConfig | null,
+  ): Promise<CollectorResult> {
     // Lấy domain làm nhãn nguồn ('vd: baokhanhhoa.vn')
-    const domain = new URL(categoryUrl).hostname.replace(/^www\./, '');
+    const domain = new URL(entryUrl).hostname.replace(/^www\./, '');
+    if (!config) {
+      this.logger.warn(`Nguồn ${entryUrl} thiếu discovery_config - bỏ qua`);
+      return {
+        sourceLabel: domain,
+        posts: [],
+        ok: false,
+        error: 'Thiếu thông tin discovery_config',
+      };
+    }
     try {
       // 1. Tải HTML trang chuyên mục (axios)
-      const { data: html } = await axios.get(categoryUrl, {
+      const { data } = await axios.get(entryUrl, {
         headers: { 'User-Agent': this.userAgent },
         timeout: 15_000,
         responseType: 'text',
       });
-      // 2. Discovery Url bai - Dung cheerio chon <a href> bai viet
-      // baokhanhhoa.vn link bai viet co dang .../202606...-<hash>/
-      const urls = this.extractArticleUrls(html, categoryUrl);
+      // Rẽ nhánh thuần theo method - không có giá trị site nào nằm trong code
+      let urls: Set<string>;
+      switch (config.method) {
+        case 'sitemap':
+          urls = this.discoverFromSitemap(data);
+          break;
+        case 'selector':
+          urls = this.extractArticleUrls(
+            data,
+            entryUrl,
+            config.linkSelector,
+            config.urlPattern,
+          );
+          break;
+        default:
+          // Method lạ trong config -> lỗi cấu hình
+          this.logger.warn(`Method discovery chưa được hỗ trợ - bỏ qua`);
+          return {
+            sourceLabel: domain,
+            posts: [],
+            ok: false,
+            error: 'Method discovery chưa được hỗ trợ',
+          };
+      }
 
       // 3. Lọc trùng + giới hạn số bài (vd 10 bài/lần)
       const uniqueUrls = [...urls].slice(0, 10);
@@ -63,18 +100,18 @@ collect(categoryUrl)
       if (axios.isAxiosError(error)) {
         if (error.response) {
           this.logger.warn(
-            `Collect lỗi: ${error.response.status} cho ${categoryUrl}: ${error.response.data?.detail}`,
+            `Collect lỗi: ${error.response.status} cho ${entryUrl}: ${error.response.data?.detail}`,
           );
         } else {
           // Khong co response = khong ket noi duoc -> service python chet/sai url
           this.logger.error(
-            `Không gọi được news-extractor cho ${categoryUrl}: ${error.message}`,
+            `Không gọi được news-extractor cho ${entryUrl}: ${error.message}`,
           );
         }
       } else {
         // Lỗi lạ ngoài axios
         this.logger.error(
-          `Lỗi không xác định khi collect ${categoryUrl}: ${String(error)}`,
+          `Lỗi không xác định khi collect ${entryUrl}: ${String(error)}`,
         );
       }
       return {
@@ -107,24 +144,35 @@ collect(categoryUrl)
   // Lấy danh sách URL bài từ HTML trang chuyên mục
   // Input: html (chuỗi), baseUrl (vd "https://baokhanhhoa.vn") để ghép Url tương đối -> tuyệt đối
   // Output: danh sách URL tuyệt đối, đã lọc đúng bài + bỏ trùng
-  private extractArticleUrls(html: string, baseUrl: string): Set<string> {
+  private extractArticleUrls(
+    html: string,
+    baseUrl: string,
+    selector: string,
+    pattern: string,
+  ): Set<string> {
     // 1. Nạp HTML vào cheerio dể truy vấn theo selector giống jQuery
     const $ = cheerio.load(html);
     // urls là kiểu dữ liệu Set sử dụng cho lọc trùng
     const urls: Set<string> = new Set();
     // Regex nhận diện URL bài: có /20xxxx/ ở giữa
     // Loại link menu/chuyên mục vì không có đoạn này
-    const articlePattern = /\/20\d{4}\//;
-    $('a.title2').each((_, el) => {
+    const re = new RegExp(pattern); // pattern la chuoi trong jsonb -> dung RegExp
+    $(selector).each((_, el) => {
       const href = $(el).attr('href');
-      if (!href) return; // skip
-      // Nếu href không khớp article pattern -> return
-      if (!articlePattern.test(href)) return; // Kiểm tra href có chứa article pattern hay không
+      if (!href || !re.test(href)) return; // skip
 
-      // Ghép thành URL tuyệt đối
-      const url = new URL(href, baseUrl).toString();
       // push URL tuyệt đối vào mảng urls
-      urls.add(url);
+      urls.add(new URL(href, baseUrl).toString());
+    });
+    return urls;
+  }
+  // Discovery bằng sitemap XML (cho site JS-render có sitemap, vd baophapluat)
+  private discoverFromSitemap(xml: string): Set<string> {
+    const $ = cheerio.load(xml, { xmlMode: true });
+    const urls = new Set<string>();
+    $('url > loc').each((_, el) => {
+      const loc = $(el).text().trim();
+      if (loc) urls.add(loc);
     });
     return urls;
   }
