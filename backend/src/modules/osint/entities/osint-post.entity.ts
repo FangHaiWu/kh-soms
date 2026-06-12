@@ -27,7 +27,7 @@ export class OsintPost {
   @Column('uuid', { name: 'group_id', nullable: true })
   groupId: string;
 
-  @Column('varchar', { length: 100, name: 'external_post_id', nullable: true })
+  @Column('varchar', { length: 500, name: 'external_post_id', nullable: true })
   externalPostId: string;
 
   @Column('varchar', {

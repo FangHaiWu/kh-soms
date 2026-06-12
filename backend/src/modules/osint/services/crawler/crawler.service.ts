@@ -46,7 +46,23 @@ export class CrawlerService {
     }
     // 2. Parse Rss Feed - dung try/catch vi co the timeout, 404...
     try {
-      const feed = await this.parser.parseURL(source.rssFeedUrl);
+      // Fetch thủ công thay vì parser.parseURL: nhiều feed (vd cand.vn) trả về gzip/brotli
+      // mà parseURL KHÔNG tự giải nén → parser nhận bytes nén → "Non-whitespace before first tag".
+      // Node 18+ fetch (undici) tự giải nén theo Content-Encoding; kèm User-Agent tránh bị chặn.
+      const res = await fetch(source.rssFeedUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; KH-SOMS-OSINT/1.0)',
+          Accept: 'application/rss+xml, application/xml, text/xml',
+        },
+        signal: AbortSignal.timeout(15000), // timeout 15s tránh treo crawler
+      });
+
+      // Throw nếu HTTP lỗi (404/500...) để rơi vào catch xử lý lỗi bên dưới
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+
+      // res.text() đã được giải nén tự động → XML sạch, parseString an toàn
+      const xml = await res.text();
+      const feed = await this.parser.parseString(xml);
       const savedArticles: OsintArticle[] = [];
       for (const item of feed.items) {
         // Bo qua neu da ton tai

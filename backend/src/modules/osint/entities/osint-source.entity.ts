@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { OsintArticle } from './osint-article.entity';
+import { DiscoveryConfig } from '../services/collectors/news-crawl.collector';
 @Entity({ name: 'osint_sources', schema: 'osint' })
 export class OsintSource {
   @PrimaryGeneratedColumn('uuid')
@@ -39,6 +40,10 @@ export class OsintSource {
 
   @Column({ type: 'smallint', default: 3, name: 'trust_level' })
   trustLevel: number;
+
+  // Cấu hình cách tìm URL bài cho nguồn này (method + tham số). null = mặc định selector
+  @Column('jsonb', { name: 'discovery_config', nullable: true })
+  discoveryConfig: DiscoveryConfig | null;
 
   @CreateDateColumn({
     type: 'timestamptz',

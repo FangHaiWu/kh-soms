@@ -35,4 +35,7 @@ tmp/
 temp/
 
 # OS
-Thumbs.db
+Thumbs.db# Python
+.venv/
+__pycache__/
+*.pyc

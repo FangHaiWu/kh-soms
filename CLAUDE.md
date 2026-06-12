@@ -74,6 +74,43 @@ Dữ liệu OSINT mặc định NB — tự động nâng cấp khi liên kết 
 - Concurrent: ≥ 200 người dùng đồng thời
 - OSINT queue riêng, không ảnh hưởng hệ thống chính
 
+### Quy tắc viết code (BẮT BUỘC)
+
+**Comment giải thích logic:**
+- Trước mỗi hàm/method: comment mô tả mục đích, input/output nếu không rõ từ tên
+- Trước các câu lệnh quan trọng (query DB, throw exception, transform data): comment 1 dòng giải thích **tại sao**, không chỉ **làm gì**
+- Các điều kiện phức tạp (`if/else` nhiều nhánh, regex, bitwise): bắt buộc có comment
+
+**Comment pipeline/flow cho hàm có nhiều bước:**
+```typescript
+// Flow: validate input → check DB → transform → save → return
+async create(dto: CreateDto): Promise<Entity> {
+  // 1. Kiểm tra dependency tồn tại (platform phải có trước khi tạo group)
+  const platform = await this.platformRepo.findOne(...);
+  if (!platform) throw new NotFoundException(...);
+
+  // 2. Tạo entity instance trong memory (chưa INSERT)
+  const entity = this.repo.create({ ...dto });
+
+  // 3. Persist vào DB, TypeORM tự gán id + timestamps
+  return this.repo.save(entity);
+}
+```
+
+**Ngôn ngữ comment:** Tiếng Việt cho logic nghiệp vụ, tiếng Anh cho technical detail.
+
+### Cách cộng tác mặc định: "hướng dẫn → user code → Claude review" (BẮT BUỘC)
+
+Trừ khi user nói rõ "bạn code luôn", Claude **KHÔNG tự viết code triển khai**. Quy trình:
+
+1. **Claude hướng dẫn từng bước**: giải thích mục đích, chỉ rõ file/vị trí, mô tả logic + pseudocode/skeleton, nêu cạm bẫy cần tránh. KHÔNG dán code hoàn chỉnh để user chỉ copy-paste.
+2. **User tự viết code** theo hướng dẫn.
+3. **Claude review**: đọc code user viết, chỉ ra bug/thiếu sót/vi phạm quy tắc, gợi ý sửa — rồi user sửa.
+
+**Lý do:** user muốn HIỂU và tự kiểm soát codebase, không muốn nhận code "hộp đen". Mục tiêu là user nắm được từng dòng.
+
+**Ngoại lệ** (Claude được tự code): scaffold/boilerplate lặp lại, file demo/script tạm để verify, hoặc khi user nói rõ "viết hộ/code luôn".
+
 ## API Base URL
 
 ```
@@ -105,6 +142,7 @@ Auth: Bearer Token (JWT)
 - Tuân thủ robots.txt, rate limit ≤ 1 req/giây mỗi domain
 - Tuân thủ Nghị định 13/2023/NĐ-CP bảo vệ dữ liệu cá nhân
 - AI chỉ **hỗ trợ** ra quyết định — không tự động ra quyết định ảnh hưởng quyền con người
+- **User-Agent crawler:** dùng UA trung lập (giống trình duyệt chung), **không** lộ danh tính cơ quan — vì lý do bảo mật nghiệp vụ (OPSEC). Đây là điều chỉnh ở lớp **danh tính**, KHÔNG nới lỏng lõi pháp lý: vẫn chỉ thu thập nội dung công khai, không đăng nhập, tôn trọng robots.txt + rate limit ≤ 1 req/giây. KHÔNG giả mạo chính xác một phiên bản trình duyệt cụ thể để né anti-bot, KHÔNG xoay IP/proxy để né lệnh chặn.
 
 ## Nguồn tài liệu
 
