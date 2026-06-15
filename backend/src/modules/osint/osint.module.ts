@@ -31,6 +31,9 @@ import { TelegramCrawlProcessor } from './services/crawler/telegram-crawl.proces
 import { NewsExtractorBridgeService } from './services/news-extractor/news-extractor-bridge.service';
 import { NewsCrawlCollector } from './services/collectors/news-crawl.collector';
 import { NewsCrawlProcessor } from './services/crawler/news-crawl.processor';
+import { OsintFacebookAccount } from '@modules/osint/entities/osint-facebook-account.entity';
+import { CommonModule } from 'src/common/common.module';
+import { FacebookAccountManager } from '@modules/osint/services/facebook/facebook-account-manager.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -45,8 +48,10 @@ import { NewsCrawlProcessor } from './services/crawler/news-crawl.processor';
       OsintComment,
       OsintCrawlLog,
       OsintPostNlp,
+      OsintFacebookAccount,
     ]),
     BullModule.registerQueue({ name: 'osint-crawl' }),
+    CommonModule, // <- thêm để OsintModule dùng được EncryptionService
   ],
 
   // TypeOrmModule.forFeature([...]) -> Tao ra cac Repository cho moi Entity va dua vao DI container cuar module
@@ -66,6 +71,7 @@ import { NewsCrawlProcessor } from './services/crawler/news-crawl.processor';
     NewsExtractorBridgeService,
     NewsCrawlCollector,
     NewsCrawlProcessor,
+    FacebookAccountManager,
   ],
   controllers: [OsintController, PlatformController, GroupsController],
   exports: [TypeOrmModule],
