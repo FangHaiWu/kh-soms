@@ -23,7 +23,11 @@
     "predev": "lsof -ti:3000 | xargs kill 2>/dev/null || true",
     "dev": "nest start --watch",
     "test:extractor": "ts-node -r tsconfig-paths/register src/scripts/test-extractor.ts",
-    "test:fb-account": "ts-node -r tsconfig-paths/register src/scripts/test-fb-account.ts"
+    "test:fb-account": "ts-node -r tsconfig-paths/register src/scripts/test-fb-account.ts",
+    "test:fb-collector": "ts-node -r tsconfig-paths/register src/scripts/test-fb-collector.ts",
+    "add:fb-account": "ts-node -r tsconfig-paths/register src/scripts/add-fb-account.ts",
+    "test:fb-login": "ts-node -r tsconfig-paths/register src/scripts/test-fb-login.ts",
+    "test:fb-session": "ts-node -r tsconfig-paths/register src/scripts/test-fb-session.ts"
   },
   "dependencies": {
     "@nestjs/bull": "^11.0.4",
@@ -44,6 +48,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.21.0",
+    "playwright": "^1.60.0",
     "reflect-metadata": "^0.2.0",
     "rss-parser": "^3.13.0",
     "rxjs": "^7.8.1",

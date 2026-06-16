@@ -34,6 +34,7 @@ import { NewsCrawlProcessor } from './services/crawler/news-crawl.processor';
 import { OsintFacebookAccount } from '@modules/osint/entities/osint-facebook-account.entity';
 import { CommonModule } from 'src/common/common.module';
 import { FacebookAccountManager } from '@modules/osint/services/facebook/facebook-account-manager.service';
+import { FacebookCollector } from '@modules/osint/services/facebook/facebook.collector';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -72,6 +73,7 @@ import { FacebookAccountManager } from '@modules/osint/services/facebook/faceboo
     NewsCrawlCollector,
     NewsCrawlProcessor,
     FacebookAccountManager,
+    FacebookCollector,
   ],
   controllers: [OsintController, PlatformController, GroupsController],
   exports: [TypeOrmModule],

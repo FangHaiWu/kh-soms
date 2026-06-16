@@ -59,15 +59,15 @@ async function main() {
     console.log('\n=== 3. pickAvailable() ===');
     const picked = await manager.pickAvailable();
     check('trả về 1 account active', !!picked && picked.status === 'active');
-    check(
-      'count < quota (khả dụng)',
-      !!picked && picked.crawlCountToday < 5,
-    );
+    check('count < quota (khả dụng)', !!picked && picked.crawlCountToday < 5);
 
     console.log('\n=== 4. getCredentials() → decrypt khớp ===');
     const cred = await manager.getCredentials(createdId);
     check('password giải mã KHỚP gốc', cred.password === PLAIN_PW);
-    check('loginIdentifier đúng', cred.loginIdentifier === 'tool01@example.com');
+    check(
+      'loginIdentifier đúng',
+      cred.loginIdentifier === 'tool01@example.com',
+    );
 
     console.log('\n=== 5. recordUsage() → count tăng ===');
     await manager.recordUsage(createdId);
@@ -78,15 +78,24 @@ async function main() {
     console.log('\n=== 6. markCheckpoint() x3 → checkpoint → retired ===');
     await manager.markCheckpoint(createdId);
     let s = await repo.findOneBy({ id: createdId });
-    check('lần 1: count=1, status=checkpoint', s?.checkpointCount === 1 && s?.status === 'checkpoint');
+    check(
+      'lần 1: count=1, status=checkpoint',
+      s?.checkpointCount === 1 && s?.status === 'checkpoint',
+    );
 
     await manager.markCheckpoint(createdId);
     s = await repo.findOneBy({ id: createdId });
-    check('lần 2: count=2, status=checkpoint', s?.checkpointCount === 2 && s?.status === 'checkpoint');
+    check(
+      'lần 2: count=2, status=checkpoint',
+      s?.checkpointCount === 2 && s?.status === 'checkpoint',
+    );
 
     await manager.markCheckpoint(createdId);
     s = await repo.findOneBy({ id: createdId });
-    check('lần 3: count=3, status=RETIRED', s?.checkpointCount === 3 && s?.status === 'retired');
+    check(
+      'lần 3: count=3, status=RETIRED',
+      s?.checkpointCount === 3 && s?.status === 'retired',
+    );
 
     console.log('\n=== 7. account đã retire KHÔNG còn được pick ===');
     // tạo điều kiện: chỉ account test này có thể bị ảnh hưởng — kiểm gián tiếp

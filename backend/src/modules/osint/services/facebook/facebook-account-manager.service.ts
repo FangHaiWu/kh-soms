@@ -112,4 +112,40 @@ export class FacebookAccountManager {
       },
     );
   }
+
+  // Sử dụng session để đăng nhập
+  // Bước ① — Thêm saveSession + getSession vào FacebookAccountManager (manager đã có accountRepo + encryptionService)
+  // Lưu session: Nhận storageState JSON -> mã hóa AES-256 -> lưu encrypted_session
+  // Session = credential (chứa cookie đăng nhập) -> bắt buộc mã hóa như password
+  async saveSession(
+    accountId: string,
+    storageStateJson: string,
+  ): Promise<void> {
+    // 1. encrypt ngay
+    const encryptedSession = this.encryptionService.encrypt(storageStateJson);
+    // 2. Lưu với accountId
+    const account = await this.accountRepo.findOneBy({ id: accountId });
+    if (!account)
+      throw new NotFoundException(`Tài khoản ${accountId} không tồn tại`);
+    await this.accountRepo.update(accountId, { encryptedSession });
+  }
+
+  // Lấy session đã lưu -> giải mã -> trả JSON string hoặc null nếu chưa có (caller fallback sang login)
+  async getSession(accountId: string): Promise<string | null> {
+    // 1. Tìm account bằng findOneBy
+    const account = await this.accountRepo.findOneBy({ id: accountId });
+    if (!account)
+      throw new NotFoundException(`Tài khoản ${accountId} không tồn tại`);
+    // 2. Giải mật
+    // Kiểm tra xem account có encrypted_session chưa
+    if (!account.encryptedSession) return null;
+    return this.encryptionService.decrypt(account.encryptedSession);
+  }
+
+  //      Bước ② — Lấy storageState sau khi login success (trong collector).
+  //              Chỗ login() trả 'success', caller cần export await context.storageState() → JSON.stringify → đưa cho saveSession.
+  //              Việc này đặt trong method getAuthenticatedContext (thay dần verifyLogin), hoặc tạm thời trong script test để verify trước.
+
+  //      Bước ③ — Verify: chạy → login pass → DB cột encrypted_session có ciphertext (không phải JSON thô);
+  //              chạy lần 2 → tái dùng session, không thấy form login nữa.
 }
