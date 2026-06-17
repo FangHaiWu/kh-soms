@@ -16,6 +16,8 @@ export interface RawPost {
   // Tên tác giả hiển thị (với channel Telegram = tên channel; với RSS = tên báo/author).
   authorName?: string | null;
 
+  // ID/username profile tác giả - cho graph đối tượng (Phase 3), null nếu không được bóc
+  authorExternalId?: string | null;
   // Nội dung text thuần của post (đã bỏ HTML). BẮT BUỘC — NLP chạy trên trường này.
   content: string;
 
