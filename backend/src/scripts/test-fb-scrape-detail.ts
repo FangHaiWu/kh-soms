@@ -53,8 +53,15 @@ async function main() {
         }
         console.log('  externalPostId  :', post.externalPostId);
         console.log('  authorName      :', post.authorName);
-        console.log('  authorExternalId:', post.authorExternalId, post.authorExternalId ? '⭐' : '(null — page vanity)');
+        console.log('  authorExternalId:', post.authorExternalId, post.authorExternalId ? '⭐' : '(null)');
+        console.log('  engagement      :', JSON.stringify(post.engagement));
         console.log('  content (200):', (post.content ?? '').slice(0, 200).replace(/\s+/g, ' '));
+        console.log(`  comments        : ${post.comments?.length ?? 0} cái. 3 mẫu:`);
+        (post.comments ?? []).slice(0, 3).forEach((c, i) =>
+          console.log(
+            `    [${i + 1}] ${c.authorName ?? '?'} (id=${c.authorExternalId ?? '?'}): ${c.content.slice(0, 60).replace(/\s+/g, ' ')}`,
+          ),
+        );
         console.log('  postUrl         :', (post.platformSpecificData as { postUrl: string })?.postUrl);
         // Sanity: content phải khác rỗng, externalPostId phải khớp target
         if (!post.content || post.externalPostId !== t.externalPostId) {

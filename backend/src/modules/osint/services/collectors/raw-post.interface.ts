@@ -41,6 +41,29 @@ export interface RawPost {
 
   // Dữ liệu đặc thù platform không nằm trong schema chung (vd Telegram: {messageUrl, isForwarded}).
   platformSpecificData?: Record<string, unknown>;
+
+  // Comment thu kèm post (Facebook). PostIngestService ghi xuống osint_comments. undefined nếu nguồn không có.
+  comments?: RawComment[];
+}
+
+/**
+ * RawComment — 1 comment chuẩn hoá kèm theo post. Ingest ghi vào osint_comments (FK post_id).
+ */
+export interface RawComment {
+  // Định danh comment trên platform (FB: data-commentid) — KHÓA dedup (UNIQUE post_id+external_comment_id).
+  externalCommentId: string;
+
+  // Tên người bình luận (hiển thị).
+  authorName?: string | null;
+
+  // ID/username profile người bình luận (vanity hoặc số) — node người cho graph Phase 3.
+  authorExternalId?: string | null;
+
+  // Nội dung text comment. NLP/lọc rác chạy trên trường này.
+  content: string;
+
+  // 0 = comment gốc, 1 = reply lồng. (FB nested — draft tạm để 0, refine sau.)
+  depth?: number;
 }
 
 /**

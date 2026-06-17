@@ -285,8 +285,11 @@ export class FacebookCollector {
         timeout: 12000,
       });
       // Bung tất cả "Xem thêm" để content không bị cắt. Click có thể fail (FB redraw) → catch nuốt.
+      // Bung "Xem thêm" — khớp CẢ vi lẫn en (ngôn ngữ FB tùy cài đặt ACCOUNT, không chỉ locale).
+      // Regex thì KHÔNG dùng ex:true; ^...$ để neo đúng nút bung nội dung, tránh khớp
+      // "Xem thêm bình luận"/"View more comments" (nút khác).
       for (const btn of await page
-        .getByRole('button', { name: 'Xem thêm', exact: true })
+        .getByRole('button', { name: /^(Xem thêm|See more)$/i })
         .all()) {
         try {
           await btn.click({ timeout: 1500 });
@@ -299,100 +302,62 @@ export class FacebookCollector {
         const messages = Array.from(
           document.querySelectorAll('div[data-ad-preview="message"]'),
         );
-        // ────────── Helper nearestUser: tìm link tác giả GẦN message nhất ──────────
-        // Vì sao cần: tác giả post (link /user/<id>) KHÔNG nằm bên trong message — nó ở header
-        // của khối post, là "anh em họ" của message. Leo cha 8 cấp không gặp (tác giả ở
-        // nhánh khác). → Quét TOÀN document, đo "khoảng cách DOM" tới message, lấy gần nhất.
-        //
-        // "Khoảng cách DOM" = bậc leo từ msg lên TỔ TIÊN CHUNG GẦN NHẤT (LCA) + bậc xuống từ
-        // LCA tới user-link. Càng nhỏ = càng "gần" nhau trong cây DOM.
-        // Probe đã verify: tác giả thật "Beat Khánh Hòa" có dist ≈ 16 (gần message),
-        // còn 1 commenter "EmeraldLynx8008" có dist ≈ 60 (xa) → cap dist ≤ 25 để loại nhầm.
-        const nearestUser = (msgEl: Element) => {
-          // BẮT BUỘC quét TOÀN document — tác giả không nằm trong message.
-          const links = Array.from(
-            document.querySelectorAll('a[href*="/user/"]'),
-          ).filter((x) => {
-            const h = (x as HTMLAnchorElement).getAttribute('href') || '';
-            const t = (x.textContent || '').trim();
-            // /user/<số> ở bất kỳ đâu trong href (đừng dùng $ cuối — href thật còn '/' sau).
-            return t && /\/user\/\d+/.test(h);
-          });
-          let best: { href: string; text: string; dist: number } | null = null;
-          for (const u of links) {
-            // (a) Liệt kê tất cả tổ tiên của message (msg → cha → ông → ...)
-            //     VD: [msg, div, div, article, ..., body]
-            const ancestors: Element[] = [];
-            let cur: Element | null = msgEl;
-            while (cur) {
-              ancestors.push(cur);
-              cur = cur.parentElement;
-            }
-            // (b) LCA = tổ tiên ĐẦU TIÊN của msg mà CHỨA user-link u.
-            //     contains() kiểm "u có nằm trong cây con của tổ tiên đó không".
-            //     lcaIdx = số bước cần LEO từ msg lên LCA.
-            const lcaIdx = ancestors.findIndex((a) => a.contains(u));
-            if (lcaIdx < 0) continue; // u không cùng cây → bỏ qua
-            // (c) Đếm bậc XUỐNG từ LCA tới u (leo lên đếm là tương đương).
-            let down = 0;
-            let p: Element | null = u;
-            while (p && p !== ancestors[lcaIdx]) {
-              p = p.parentElement;
-              down++;
-            }
-            const dist = lcaIdx + down; // tổng đường đi msg <-> u qua LCA
-            // Giữ user có dist nhỏ nhất → tác giả gần message nhất.
-            if (!best || dist < best.dist) {
-              best = {
-                href: (u as HTMLAnchorElement).href,
-                text: u.textContent || '',
-                dist,
-              };
-            }
-          }
-          return best;
+        // ────────── Helper countNear: đọc SỐ tương tác cạnh 1 nút action ──────────
+        // Neo bằng data-ad-rendering-role (KHÔNG phụ thuộc ngôn ngữ) — bền hơn bám text "Thích/Like".
+        // marker <div data-ad-rendering-role="like_button"> rỗng; số nằm trong nút bao ngoài →
+        // leo tới [role="button"] gần nhất rồi lấy innerText (vd "321"). Parse số ở Node (parseCount).
+        const countNear = (card: Element, role: string): string | null => {
+          const marker = card.querySelector(
+            `[data-ad-rendering-role="${role}"]`,
+          );
+          if (!marker) return null;
+          const btn = marker.closest('[role="button"]') || marker.parentElement;
+          const t = btn ? (btn as HTMLElement).innerText.trim() : '';
+          return t || null;
         };
 
-        // ────────── BÓC NEO-THEO-ID (chạy TRONG trình duyệt) ──────────
-
-        // Duyệt từng message, kiểm xem nó có thuộc post mục tiêu không.
+        // ────────── BÓC NEO-THEO-ID + ENGAGEMENT (chạy TRONG trình duyệt) ──────────
         for (const msg of messages) {
+          // (1) Leo từ message tìm POST CARD = tổ tiên gần nhất chứa khối tên tác giả (profile_name).
+          //     Card gói trọn 1 post: tên tác giả + nội dung + thanh like/comment/share CỦA CÙNG post.
           let el: Element | null = msg;
-          let idMatch = false; // khối có link /posts/<postId> chưa?
-
-          // Leo lên TỐI ĐA 8 đời cha. Leo sâu hơn (vd 25) sẽ chạm tổ tiên dùng chung
-          // với post khác → gán nhầm post. 8 đời = khối chặt vừa đủ.
-          for (let i = 0; i < 8 && el; i++) {
+          let card: Element | null = null;
+          for (let i = 0; i < 12 && el; i++) {
             el = el.parentElement;
             if (!el) break;
-
-            // (1) Khối này có link /posts/<postId> KHÔNG kèm comment_id?
-            //     /posts/1722345968791242   ✅ (link permalink của post)
-            //     /posts/1722345968791242?comment_id=999  ❌ (link 1 comment, không phải post)
-            //     Phải `some()` vì 1 khối có nhiều <a>, chỉ cần 1 cái khớp là đủ.
-            if (
-              Array.from(el.querySelectorAll('a[href]')).some((x) => {
-                const h = (x as HTMLAnchorElement).href;
-                return (
-                  h.includes('/posts/' + postId) && !h.includes('comment_id')
-                );
-              })
-            ) {
-              idMatch = true;
+            if (el.querySelector('[data-ad-rendering-role="profile_name"]')) {
+              card = el;
               break;
             }
           }
+          if (!card) continue;
+
+          // (2) Xác nhận card thuộc ĐÚNG post mục tiêu: có link /posts/<postId> KHÔNG kèm comment_id.
+          const idMatch = Array.from(card.querySelectorAll('a[href]')).some(
+            (x) => {
+              const h = (x as HTMLAnchorElement).href;
+              return (
+                h.includes('/posts/' + postId) && !h.includes('comment_id')
+              );
+            },
+          );
           if (!idMatch) continue;
 
-          // (2) Author = /user/<số> GẦN message nhất theo dist DOM (xem helper nearestUser).
-          //     Cap dist ≤ 25: probe đo được author thật ~16, commenter ~60 → 25 là ngưỡng an toàn.
-          //     Vượt cap → để null thay vì gán nhầm commenter làm tác giả.
-          const u = nearestUser(msg);
-          const authorOK = u && u.dist <= 25;
+          // (3) Tác giả: link trong khối profile_name (vanity HOẶC /user/<số>) → bóc id ở Node.
+          const authorA = card.querySelector(
+            '[data-ad-rendering-role="profile_name"] a',
+          ) as HTMLAnchorElement | null;
+
+          // (4) Engagement: số like/comment/share neo data-ad-rendering-role trong CHÍNH card.
           return {
             content: (msg as HTMLElement).innerText,
-            authorName: authorOK ? u.text.slice(0, 200) : null,
-            authorHref: authorOK ? u.href : null,
+            authorName: authorA
+              ? (authorA.textContent || '').trim().slice(0, 200)
+              : null,
+            authorHref: authorA ? authorA.href : null,
+            likeRaw: countNear(card, 'like_button'),
+            commentRaw: countNear(card, 'comment_button'),
+            shareRaw: countNear(card, 'share_button'),
           };
         }
 
@@ -402,34 +367,69 @@ export class FacebookCollector {
       // Không tìm thấy post mục tiêu (vd FB ẩn, đã xóa) → bỏ qua.
       if (!detail) return null;
 
-      // ────────── Bóc authorExternalId Ở NODE (sau evaluate) ──────────
-      // Tách ID số từ href tác giả. VD:
-      //   '/groups/928.../user/61578579235269/'  → match[1] = '61578579235269'  (post trong group)
-      //   '/profile.php?id=100012345678'         → match[1] = '100012345678'   (post trên page/profile)
-      //   '/khanhhoa.vietnam' (vanity của page) → cả 2 regex trượt → null     (MVP chấp nhận)
-      // Đây là field QUAN TRỌNG cho graph đối tượng Phase 3 (node = người).
-      let authorExternalId: string | null = null;
-      if (detail.authorHref) {
-        const m =
-          detail.authorHref.match(/\/user\/(\d+)/) ||
-          detail.authorHref.match(/profile\.php\?id=(\d+)/);
-        authorExternalId = m ? m[1] : null;
-      }
-      // ────────── Dựng RawPost — đối tượng chuẩn dùng chung cho mọi nguồn ──────────
-      // VD kết quả cuối với post "tai nạn Phong Châu":
-      // {
-      //   externalPostId: '1722345968791242',           // khóa dedup (UNIQUE platform+id)
-      //   content:        'GẤP GẤP!! ... cầu Phong Châu (Nha Trang)...',
-      //   authorName:     'Beat Khánh Hòa',
-      //   authorExternalId: '61578579235269',           // ⭐ node người cho graph Phase 3
-      //   platformSpecificData: { postUrl: '...posts/1722345968791242/' },
-      // }
-      // Sau này PostIngestService nhận object này → NLP → save osint_posts (tái dùng pipeline).
+      // ────────── authorExternalId Ở NODE (vanity HOẶC số) ──────────
+      const authorExternalId = this.extractExternalId(detail.authorHref);
+
+      // ────────── Bóc COMMENT (3b) — neo data-commentid (ổn định, không phụ thuộc ngôn ngữ) ──────────
+      const rawComments = await page.evaluate(() => {
+        const out: {
+          externalCommentId: string;
+          authorName: string | null;
+          authorHref: string | null;
+          content: string;
+        }[] = [];
+        for (const n of Array.from(
+          document.querySelectorAll('[data-commentid]'),
+        )) {
+          const externalCommentId = n.getAttribute('data-commentid');
+          if (!externalCommentId) continue;
+          // Tác giả: comment có nhiều link mang comment_id (avatar/tên/timestamp);
+          // lấy cái CÓ TEXT = link tên người bình luận.
+          const aCands = Array.from(
+            n.querySelectorAll('a[href*="comment_id="]'),
+          ) as HTMLAnchorElement[];
+          const a = aCands.find((x) => (x.textContent || '').trim()) || null;
+          // Nội dung: div[dir="auto"] DÀI NHẤT trong comment.
+          let content = '';
+          for (const d of Array.from(n.querySelectorAll('div[dir="auto"]'))) {
+            const t = (d as HTMLElement).innerText.trim();
+            if (t.length > content.length) content = t;
+          }
+          if (!content) continue;
+          out.push({
+            externalCommentId,
+            authorName: a ? (a.textContent || '').trim() : null,
+            authorHref: a ? a.href : null,
+            content,
+          });
+        }
+        // data-commentid có thể lặp (wrapper lồng) → distinct theo id.
+        const seen = new Set<string>();
+        return out.filter((c) =>
+          seen.has(c.externalCommentId)
+            ? false
+            : (seen.add(c.externalCommentId), true),
+        );
+      });
+
+      // ────────── Dựng RawPost (kèm engagement + comments) ──────────
       const rawPost: RawPost = {
         externalPostId: target.externalPostId,
         content: detail.content,
         authorName: detail.authorName,
         authorExternalId,
+        engagement: {
+          likes: this.parseCount(detail.likeRaw),
+          commentCount: this.parseCount(detail.commentRaw),
+          shares: this.parseCount(detail.shareRaw),
+        },
+        comments: rawComments.map((c) => ({
+          externalCommentId: c.externalCommentId,
+          authorName: c.authorName,
+          authorExternalId: this.extractExternalId(c.authorHref),
+          content: c.content,
+          depth: 0, // draft: chưa phân biệt reply lồng — refine sau
+        })),
         platformSpecificData: { postUrl: target.postUrl },
       };
       return rawPost;
@@ -441,6 +441,37 @@ export class FacebookCollector {
       // BẮT BUỘC đóng page — không thì leak. Browser do caller đóng (spec G).
       await page.close();
     }
+  }
+
+  // Bóc định danh profile từ href: /user/<số> | profile.php?id=<số> | vanity (/tênprofile).
+  // Dùng cho cả tác giả post lẫn comment. null nếu href rỗng/không bóc được.
+  private extractExternalId(href: string | null): string | null {
+    if (!href) return null;
+    const m =
+      href.match(/\/user\/(\d+)/) || href.match(/profile\.php\?id=(\d+)/);
+    if (m) return m[1];
+    // vanity: lấy đoạn path cuối — vd https://web.facebook.com/beatkhanhhoa24h?... → 'beatkhanhhoa24h'
+    try {
+      const u = new URL(href, 'https://www.facebook.com');
+      const segs = u.pathname.replace(/\/+$/, '').split('/').filter(Boolean);
+      return segs.length ? segs[segs.length - 1] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Chuẩn hoá số tương tác FB về number. VD: "321"→321, "1,2 N"→1200, "3,4 Tr"→3400000.
+  // FB vi: '.' = ngăn nghìn, ',' = thập phân; N = nghìn, Tr = triệu. K/M cho UI tiếng Anh.
+  private parseCount(raw: string | null | undefined): number | undefined {
+    if (!raw) return undefined;
+    const m = raw.trim().match(/([\d.,]+)\s*(K|M|N|TR)?/i);
+    if (!m) return undefined;
+    const num = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
+    if (isNaN(num)) return undefined;
+    const suf = (m[2] || '').toUpperCase();
+    if (suf === 'K' || suf === 'N') return Math.round(num * 1_000);
+    if (suf === 'M' || suf === 'TR') return Math.round(num * 1_000_000);
+    return Math.round(num);
   }
 
   // ─── TẠM (verify Chunk 2b/2c) — mở browser → getAuthenticatedContext → kiểm c_user → đóng. Xóa ở Chunk 3.
