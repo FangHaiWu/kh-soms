@@ -10,6 +10,7 @@ import { NlpService } from '../nlp/nlp.service';
 import { SlangDictionaryService } from '../slang-dictionary.service';
 import { AlertService } from '../alert/alert.service';
 import { RawPost } from '../collectors/raw-post.interface';
+import { OsintComment } from '@modules/osint/entities/osint-comment.entity';
 
 /** Tham số ngữ cảnh 1 mẻ ingest — biết post thuộc platform/group/crawl_type nào. */
 export interface IngestContext {
@@ -48,6 +49,8 @@ export class PostIngestService {
     private nlpService: NlpService,
     private slangService: SlangDictionaryService,
     private alertService: AlertService,
+    @InjectRepository(OsintComment)
+    private commentRepo: Repository<OsintComment>,
   ) {}
 
   /** SHA-256 nội dung — phục vụ phát hiện trùng nội dung (ngoài dedup theo external id). */
@@ -117,6 +120,7 @@ export class PostIngestService {
         externalPostId: raw.externalPostId,
         externalGroupId: raw.externalGroupId ?? undefined,
         authorName: raw.authorName ?? undefined,
+        authorExternalId: raw.authorExternalId ?? undefined,
         content: raw.content,
         contentHash: this.contentHash(raw.content),
         mediaUrls: raw.mediaUrls,
@@ -155,6 +159,37 @@ export class PostIngestService {
         );
         if (alert) summary.alertsCreated++;
       }
+      // Vòng ghi comment
+      if (!raw.comments) continue;
+      for (const rawComment of raw.comments) {
+        // Mỗi comment, nếu không có externalCommentId -> continue -> tránh ghi null
+        if (!rawComment.externalCommentId) continue;
+        // Nếu isJunkComment -> continue
+        if (this.isJunkComment(rawComment.content)) continue;
+        // - NLP tầng 2
+        const nlp = await this.nlpService.analyzeArticle(
+          '',
+          rawComment.content,
+        );
+        const comment = this.commentRepo.create({
+          postId: saved.id,
+          externalCommentId: rawComment.externalCommentId,
+          authorName: rawComment.authorName,
+          authorExternalId: rawComment.authorExternalId,
+          content: rawComment.content,
+          depth: rawComment.depth ?? 0,
+          keywords: nlp.matchedKeywords,
+          isRelevant: nlp.isRelevant,
+        });
+        try {
+          await this.commentRepo.save(comment);
+        } catch (e: any) {
+          if (e?.code === '23505') continue; // đã có comment này → dedup, im lặng
+          this.logger.error(
+            `Lưu comment ${comment.externalCommentId} thất bại: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+      }
     }
 
     // 6. Ghi 1 dòng osint_crawl_logs cho cả mẻ — phục vụ health-check & truy vết về sau
@@ -174,5 +209,15 @@ export class PostIngestService {
     );
 
     return summary;
+  }
+
+  // Helper isJunkComment - method private, trả boolean
+  // Comment rác hiển nhiên: rỗng/quá ngắn hoặc chỉ emoji/ dấu câu, hoặc cụm UI
+  private isJunkComment(content: string): boolean {
+    const t = content.trim();
+    if (t.length < 10) return true; // Quá ngắn
+    if (!/\p{L}/u.test(t)) return true; // Không có ký tự nào (chỉ có emoji/số/dấu)
+    if (/^(thích|trả lời|chia sẻ|like|reply|share)\b/i.test(t)) return true; // dính text nút UI
+    return false;
   }
 }

@@ -142,7 +142,7 @@ export class FacebookCollector {
     const saved = await this.accountManager.getSession(account.id);
     if (saved) {
       const context = await this.newStealthContext(browser, saved);
-      // 1. Kieerm tra session còn sống: mở fb -> xem có bị đá về /login không + còn c_user không
+      // 1. Kiểm tra session còn sống: mở fb -> xem có bị đá về /login không + còn c_user không
       if (await this.isSessionAlive(context)) {
         this.logger.log(`[${account.label}] dùng lại session đã lưu`);
         return context;
