@@ -29,7 +29,8 @@
     "test:fb-login": "ts-node -r tsconfig-paths/register src/scripts/test-fb-login.ts",
     "test:fb-session": "ts-node -r tsconfig-paths/register src/scripts/test-fb-session.ts",
     "test:fb-scrape-ids": "ts-node -r tsconfig-paths/register src/scripts/test-fb-scrape-ids.ts",
-    "test:fb-scrape-detail": "ts-node -r tsconfig-paths/register src/scripts/test-fb-scrape-detail.ts"
+    "test:fb-scrape-detail": "ts-node -r tsconfig-paths/register src/scripts/test-fb-scrape-detail.ts",
+    "capture:fb-session": "ts-node -r tsconfig-paths/register src/scripts/capture-fb-session.ts"
   },
   "dependencies": {
     "@nestjs/bull": "^11.0.4",

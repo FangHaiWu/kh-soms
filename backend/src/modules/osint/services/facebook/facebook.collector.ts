@@ -284,6 +284,15 @@ export class FacebookCollector {
       await page.waitForSelector('div[data-ad-preview="message"]', {
         timeout: 12000,
       });
+      // Permalink mở post trong MODAL — message TRONG modal load CHẬM hơn message feed.
+      // waitForSelector ở trên có thể pass nhờ message FEED trong khi modal chưa render → đọc ra null.
+      // Chờ riêng message trong modal. .catch nuốt: FB đôi khi render thẳng (không modal) → fallback document.
+      await page
+        .waitForSelector(
+          'div[role="dialog"][aria-modal="true"] div[data-ad-preview="message"]',
+          { timeout: 8000 },
+        )
+        .catch(() => {});
       // Bung tất cả "Xem thêm" để content không bị cắt. Click có thể fail (FB redraw) → catch nuốt.
       // Bung "Xem thêm" — khớp CẢ vi lẫn en (ngôn ngữ FB tùy cài đặt ACCOUNT, không chỉ locale).
       // Regex thì KHÔNG dùng ex:true; ^...$ để neo đúng nút bung nội dung, tránh khớp
@@ -296,18 +305,22 @@ export class FacebookCollector {
         } catch {}
       }
       await page.waitForTimeout(500); // chờ text bung
-      // postId được TRUYỀN qua arg thứ 2 (closure Node không vào được trình duyệt).
-      const detail = await page.evaluate((postId) => {
-        // Mọi khối nội dung post trên trang. VD trên group permalink có thể có 2-3 cái.
-        const messages = Array.from(
-          document.querySelectorAll('div[data-ad-preview="message"]'),
-        );
-        // ────────── Helper countNear: đọc SỐ tương tác cạnh 1 nút action ──────────
-        // Neo bằng data-ad-rendering-role (KHÔNG phụ thuộc ngôn ngữ) — bền hơn bám text "Thích/Like".
-        // marker <div data-ad-rendering-role="like_button"> rỗng; số nằm trong nút bao ngoài →
-        // leo tới [role="button"] gần nhất rồi lấy innerText (vd "321"). Parse số ở Node (parseCount).
-        const countNear = (card: Element, role: string): string | null => {
-          const marker = card.querySelector(
+      // ────────── BÓC POST — scope vào MODAL (permalink mở post trong dialog, feed nằm sau lưng) ──────────
+      // FB mở permalink dạng modal [role=dialog][aria-modal]; feed vẫn render phía sau → quét cả
+      // trang sẽ LẪN post feed. Scope vào modal: trong đó có ĐÚNG 1 post = target (bỏ idMatch/leo-cây).
+      const detail = await page.evaluate(() => {
+        // Fallback document nếu FB render thẳng (không modal) — khi đó không có feed nên an toàn.
+        const root: Element | Document =
+          document.querySelector('div[role="dialog"][aria-modal="true"]') ??
+          document;
+
+        // countNear: đọc SỐ tương tác cạnh 1 nút action. Neo data-ad-rendering-role (không phụ
+        // thuộc ngôn ngữ); marker rỗng → leo tới [role="button"] bao ngoài lấy innerText (vd "321").
+        const countNear = (
+          scope: Element | Document,
+          role: string,
+        ): string | null => {
+          const marker = scope.querySelector(
             `[data-ad-rendering-role="${role}"]`,
           );
           if (!marker) return null;
@@ -316,94 +329,104 @@ export class FacebookCollector {
           return t || null;
         };
 
-        // ────────── BÓC NEO-THEO-ID + ENGAGEMENT (chạy TRONG trình duyệt) ──────────
-        for (const msg of messages) {
-          // (1) Leo từ message tìm POST CARD = tổ tiên gần nhất chứa khối tên tác giả (profile_name).
-          //     Card gói trọn 1 post: tên tác giả + nội dung + thanh like/comment/share CỦA CÙNG post.
-          let el: Element | null = msg;
-          let card: Element | null = null;
-          for (let i = 0; i < 12 && el; i++) {
-            el = el.parentElement;
-            if (!el) break;
-            if (el.querySelector('[data-ad-rendering-role="profile_name"]')) {
-              card = el;
-              break;
-            }
-          }
-          if (!card) continue;
+        const msg = root.querySelector('div[data-ad-preview="message"]');
+        if (!msg) return null;
+        const authorA = root.querySelector(
+          '[data-ad-rendering-role="profile_name"] a',
+        ) as HTMLAnchorElement | null;
+        return {
+          content: (msg as HTMLElement).innerText,
+          authorName: authorA
+            ? (authorA.textContent || '').trim().slice(0, 200)
+            : null,
+          authorHref: authorA ? authorA.href : null,
+          likeRaw: countNear(root, 'like_button'),
+          commentRaw: countNear(root, 'comment_button'),
+          shareRaw: countNear(root, 'share_button'),
+        };
+      });
 
-          // (2) Xác nhận card thuộc ĐÚNG post mục tiêu: có link /posts/<postId> KHÔNG kèm comment_id.
-          const idMatch = Array.from(card.querySelectorAll('a[href]')).some(
-            (x) => {
-              const h = (x as HTMLAnchorElement).href;
-              return (
-                h.includes('/posts/' + postId) && !h.includes('comment_id')
-              );
-            },
-          );
-          if (!idMatch) continue;
-
-          // (3) Tác giả: link trong khối profile_name (vanity HOẶC /user/<số>) → bóc id ở Node.
-          const authorA = card.querySelector(
-            '[data-ad-rendering-role="profile_name"] a',
-          ) as HTMLAnchorElement | null;
-
-          // (4) Engagement: số like/comment/share neo data-ad-rendering-role trong CHÍNH card.
-          return {
-            content: (msg as HTMLElement).innerText,
-            authorName: authorA
-              ? (authorA.textContent || '').trim().slice(0, 200)
-              : null,
-            authorHref: authorA ? authorA.href : null,
-            likeRaw: countNear(card, 'like_button'),
-            commentRaw: countNear(card, 'comment_button'),
-            shareRaw: countNear(card, 'share_button'),
-          };
-        }
-
-        return null;
-      }, target.externalPostId);
-
-      // Không tìm thấy post mục tiêu (vd FB ẩn, đã xóa) → bỏ qua.
+      // Không tìm thấy post mục tiêu (modal trống / FB ẩn / đã xóa) → bỏ qua.
       if (!detail) return null;
 
       // ────────── authorExternalId Ở NODE (vanity HOẶC số) ──────────
       const authorExternalId = this.extractExternalId(detail.authorHref);
 
-      // ────────── Bóc COMMENT (3b) — neo data-commentid (ổn định, không phụ thuộc ngôn ngữ) ──────────
+      // ────────── Load thêm comment — modal lazy-load, mới render vài cái đầu ──────────
+      // Cuộn TRONG modal vài nhịp để FB render thêm comment (Sprint 4: scroll cố định, S5 tối ưu).
+      for (let i = 0; i < 5; i++) {
+        await page.evaluate(() => {
+          const m = document.querySelector(
+            'div[role="dialog"][aria-modal="true"]',
+          );
+          (m ?? document.scrollingElement)?.scrollBy(0, 2000);
+        });
+        await page.waitForTimeout(1200);
+      }
+
+      // ────────── Bóc COMMENT (3b) — neo aria-label (build vi-VN KHÔNG có data-commentid) ──────────
       const rawComments = await page.evaluate(() => {
+        const root: Element | Document =
+          document.querySelector('div[role="dialog"][aria-modal="true"]') ??
+          document;
         const out: {
           externalCommentId: string;
           authorName: string | null;
           authorHref: string | null;
           content: string;
         }[] = [];
-        for (const n of Array.from(
-          document.querySelectorAll('[data-commentid]'),
-        )) {
-          const externalCommentId = n.getAttribute('data-commentid');
-          if (!externalCommentId) continue;
-          // Tác giả: comment có nhiều link mang comment_id (avatar/tên/timestamp);
-          // lấy cái CÓ TEXT = link tên người bình luận.
+        // Comment article: vi "Bình luận dưới tên <tên> vào <giờ>" | en "Comment by <name>".
+        const nodes = root.querySelectorAll(
+          '[role="article"][aria-label^="Bình luận"], [role="article"][aria-label^="Comment by"]',
+        );
+        for (const n of Array.from(nodes)) {
+          // external_comment_id: comment_id= có 2 dạng (base64 + numeric); CHỈ lấy NUMERIC (ổn định).
           const aCands = Array.from(
             n.querySelectorAll('a[href*="comment_id="]'),
           ) as HTMLAnchorElement[];
-          const a = aCands.find((x) => (x.textContent || '').trim()) || null;
-          // Nội dung: div[dir="auto"] DÀI NHẤT trong comment.
+          let externalCommentId: string | null = null;
+          for (const a of aCands) {
+            const mm = a.href.match(/comment_id=(\d+)(?:&|$)/);
+            if (mm) {
+              externalCommentId = mm[1];
+              break;
+            }
+          }
+          if (!externalCommentId) continue;
+          // authorName: bóc từ aria-label; authorHref = link CÓ TEXT (link tên người bình luận).
+          const label = n.getAttribute('aria-label') || '';
+          const mName =
+            label.match(/dưới tên (.+?)\s+vào\s/) ||
+            label.match(/Comment by (.+)$/);
+          // authorHref: link tên người bình luận = link ĐẦU TIÊN có text. KHÔNG giới hạn comment_id
+          // vì link profile group (/groups/<gid>/user/<uid>/) KHÔNG mang comment_id → nếu lọc theo
+          // comment_id sẽ vớ nhầm link permalink (trỏ về POST) → authorExternalId ra id post.
+          const nameLink =
+            (
+              Array.from(n.querySelectorAll('a[href]')) as HTMLAnchorElement[]
+            ).find((x) => (x.textContent || '').trim()) || null;
+          const authorName = mName
+            ? mName[1].trim()
+            : nameLink
+              ? (nameLink.textContent || '').trim()
+              : null;
+          // Nội dung: div[dir="auto"] DÀI NHẤT — BỎ div nằm trong <a> (tên/timestamp nằm trong link,
+          // nội dung comment thì KHÔNG) để không vớ nhầm tên tác giả khi comment ngắn hơn tên.
           let content = '';
           for (const d of Array.from(n.querySelectorAll('div[dir="auto"]'))) {
+            if ((d as HTMLElement).closest('a')) continue;
             const t = (d as HTMLElement).innerText.trim();
             if (t.length > content.length) content = t;
           }
           if (!content) continue;
           out.push({
             externalCommentId,
-            authorName: a ? (a.textContent || '').trim() : null,
-            authorHref: a ? a.href : null,
+            authorName,
+            authorHref: nameLink ? nameLink.href : null,
             content,
           });
         }
-        // data-commentid có thể lặp (wrapper lồng) → distinct theo id.
+        // Có thể lặp (article lồng / scroll) → distinct theo id.
         const seen = new Set<string>();
         return out.filter((c) =>
           seen.has(c.externalCommentId)
@@ -487,6 +510,51 @@ export class FacebookCollector {
     }
   }
 
+  /**
+   * Mở browser HEADED để user TỰ login bằng tay (qua cả checkpoint), rồi bắt session lưu DB.
+   * Né auto form-login (bị FB phát hiện → checkpoint). Production: login tay hiếm, reuse session.
+   * YÊU CẦU FB_HEADLESS=false (không thì cửa sổ ẩn, không login tay được).
+   * Flow: launch headed → goto fb → poll cookie c_user tới khi user login xong → storageState → saveSession.
+   * Trả true nếu bắt được session; false nếu hết giờ chờ.
+   */
+  async captureManualSession(
+    account: OsintFacebookAccount,
+    timeoutMs = 300_000,
+  ): Promise<boolean> {
+    const browser = await this.launchBrowser();
+    try {
+      // Context sạch (KHÔNG truyền storageState) — user sẽ login từ đầu trong cửa sổ này.
+      const context = await this.newStealthContext(browser);
+      const page = await context.newPage();
+      await page.goto('https://www.facebook.com/', {
+        waitUntil: 'domcontentloaded',
+      });
+      this.logger.warn(
+        `[${account.label}] 👉 HÃY LOGIN BẰNG TAY trong cửa sổ vừa mở (giải cả checkpoint nếu có). Đang chờ…`,
+      );
+      // Login thành công → cookie c_user xuất hiện. Poll tới khi có hoặc hết giờ.
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        const cookies = await context.cookies();
+        if (cookies.some((c) => c.name === 'c_user')) {
+          // Chờ thêm để session ổn định (FB set nốt cookie/token) rồi mới export.
+          await page.waitForTimeout(5000);
+          const state = await context.storageState();
+          await this.accountManager.saveSession(
+            account.id,
+            JSON.stringify(state),
+          );
+          this.logger.log(`[${account.label}] đã bắt session + lưu DB ✅`);
+          return true;
+        }
+        await page.waitForTimeout(3000);
+      }
+      this.logger.error(`[${account.label}] hết giờ chờ login tay`);
+      return false;
+    } finally {
+      await browser.close();
+    }
+  }
   // ─── TẠM (verify Chunk 3a-i) — auth → scrapeGroupPostIds → trả danh sách ID. Xóa ở Chunk 4.
   async verifyScrapeIds(
     account: OsintFacebookAccount,

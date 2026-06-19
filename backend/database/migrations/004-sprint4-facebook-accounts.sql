@@ -3,7 +3,7 @@
 -- Chạy: docker exec -i postgres psql -U postgres -d kh_soms < backend/database/migrations/004-sprint4-facebook-accounts.sql
 
 
--- Bảng óint_facebook_accounts 
+-- Bảng osint_facebook_accounts 
 CREATE TABLE IF NOT EXISTS osint.osint_facebook_accounts (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   label VARCHAR(100) UNIQUE NOT NULL,

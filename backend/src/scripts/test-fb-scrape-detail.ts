@@ -12,24 +12,27 @@ import { AppModule } from '@app/app.module';
 import { FacebookCollector } from '@modules/osint/services/facebook/facebook.collector';
 import { OsintFacebookAccount } from '@modules/osint/entities/osint-facebook-account.entity';
 
-// Target thật: 1 group post (đã verify neo-theo-id) + 1 page post
+// Target thật (ground truth để verify): GROUP 11 like/1 cmt, PAGE 393 like/136 cmt/7 share
 const TARGETS = [
   {
     kind: 'GROUP',
-    externalPostId: '1722345968791242',
-    postUrl: 'https://www.facebook.com/groups/nhatrangbabymom/posts/1722345968791242/',
+    externalPostId: '1723652361993936',
+    postUrl:
+      'https://www.facebook.com/groups/nhatrangbabymom/permalink/1723652361993936/',
   },
   {
     kind: 'PAGE',
-    externalPostId: 'pfbid02UrnRc18MXG4BY9NXZobr6J8u4BEVRPD4Ui64qzPTF5usDK3FVZ69fFBJirksp6Kxl',
-    postUrl: 'https://www.facebook.com/khanhhoa.vietnam/posts/pfbid02UrnRc18MXG4BY9NXZobr6J8u4BEVRPD4Ui64qzPTF5usDK3FVZ69fFBJirksp6Kxl',
+    externalPostId:
+      'pfbid02jfPr5r8g3Rt4pfah8gJBbPtLdcf5NWktWdRYM5PZB22QVZzC3VKn7Afvz9m6TvBMl',
+    postUrl:
+      'https://www.facebook.com/beatkhanhhoa24h/posts/pfbid02jfPr5r8g3Rt4pfah8gJBbPtLdcf5NWktWdRYM5PZB22QVZzC3VKn7Afvz9m6TvBMl',
   },
 ];
 
 async function main() {
   const label = process.env.FB_TEST_LABEL ?? 'tool-acct-01';
   const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ['error', 'warn', 'log'],
+    logger: ['error', 'warn', 'log', 'debug'],
   });
   const collector = app.get(FacebookCollector);
   const repo = app.get<Repository<OsintFacebookAccount>>(
@@ -40,7 +43,9 @@ async function main() {
   try {
     const account = await repo.findOneBy({ label });
     if (!account) {
-      console.error(`❌ Chưa có account "${label}". Chạy: npm run add:fb-account`);
+      console.error(
+        `❌ Chưa có account "${label}". Chạy: npm run add:fb-account`,
+      );
       exitCode = 1;
     } else {
       for (const t of TARGETS) {
@@ -53,16 +58,30 @@ async function main() {
         }
         console.log('  externalPostId  :', post.externalPostId);
         console.log('  authorName      :', post.authorName);
-        console.log('  authorExternalId:', post.authorExternalId, post.authorExternalId ? '⭐' : '(null)');
-        console.log('  engagement      :', JSON.stringify(post.engagement));
-        console.log('  content (200):', (post.content ?? '').slice(0, 200).replace(/\s+/g, ' '));
-        console.log(`  comments        : ${post.comments?.length ?? 0} cái. 3 mẫu:`);
-        (post.comments ?? []).slice(0, 3).forEach((c, i) =>
-          console.log(
-            `    [${i + 1}] ${c.authorName ?? '?'} (id=${c.authorExternalId ?? '?'}): ${c.content.slice(0, 60).replace(/\s+/g, ' ')}`,
-          ),
+        console.log(
+          '  authorExternalId:',
+          post.authorExternalId,
+          post.authorExternalId ? '⭐' : '(null)',
         );
-        console.log('  postUrl         :', (post.platformSpecificData as { postUrl: string })?.postUrl);
+        console.log('  engagement      :', JSON.stringify(post.engagement));
+        console.log(
+          '  content (200):',
+          (post.content ?? '').slice(0, 200).replace(/\s+/g, ' '),
+        );
+        console.log(
+          `  comments        : ${post.comments?.length ?? 0} cái. 3 mẫu:`,
+        );
+        (post.comments ?? [])
+          .slice(0, 3)
+          .forEach((c, i) =>
+            console.log(
+              `    [${i + 1}] ${c.authorName ?? '?'} (id=${c.authorExternalId ?? '?'}): ${c.content.slice(0, 60).replace(/\s+/g, ' ')}`,
+            ),
+          );
+        console.log(
+          '  postUrl         :',
+          (post.platformSpecificData as { postUrl: string })?.postUrl,
+        );
         // Sanity: content phải khác rỗng, externalPostId phải khớp target
         if (!post.content || post.externalPostId !== t.externalPostId) {
           console.error('  ❌ sanity fail');
