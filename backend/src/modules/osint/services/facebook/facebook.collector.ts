@@ -46,10 +46,29 @@ export class FacebookCollector {
       storageState: storageState ? JSON.parse(storageState) : undefined,
     });
 
-    // Tầng 2 (sau cờ launch): che các dấu hiệu còn sót
+    // Tầng 2 (sau cờ launch): che các dấu hiệu automation còn sót. Chạy TRƯỚC mọi script của trang
+    // (addInitScript) nên FB đọc giá trị đã vá. Memory pháp lý dự án cho phép "ẩn dấu hiệu automation".
     await context.addInitScript(() => {
-      // navigator.language,
-      // navigator.plugins,
+      // 1. webdriver = false — tín hiệu bot rõ nhất Playwright để lộ (FB check đầu tiên).
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      // 2. languages khớp locale vi-VN — headless mặc định trống/[en-US] = bất thường.
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['vi-VN', 'vi'],
+      });
+      // 3. plugins không rỗng — headless thường plugins.length === 0 = cờ đỏ.
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [1, 2, 3, 4, 5].map((i) => ({ name: `Plugin ${i}` })),
+      });
+      // 4. window.chrome — Chrome thật luôn có object này; headless thiếu.
+      (window as unknown as { chrome: unknown }).chrome = { runtime: {} };
+      // 5. permissions.query('notifications') — headless hay trả 'denied' lệch với Notification.permission.
+      const orig = navigator.permissions.query.bind(navigator.permissions);
+      navigator.permissions.query = (p: PermissionDescriptor) =>
+        p.name === 'notifications'
+          ? Promise.resolve({
+              state: Notification.permission,
+            } as PermissionStatus)
+          : orig(p);
     });
 
     return context;
