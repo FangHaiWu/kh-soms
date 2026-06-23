@@ -35,6 +35,7 @@ import { OsintFacebookAccount } from '@modules/osint/entities/osint-facebook-acc
 import { CommonModule } from 'src/common/common.module';
 import { FacebookAccountManager } from '@modules/osint/services/facebook/facebook-account-manager.service';
 import { FacebookCollector } from '@modules/osint/services/facebook/facebook.collector';
+import { FacebookCrawlProcessor } from './services/crawler/facebook-crawl.processor';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -67,6 +68,7 @@ import { FacebookCollector } from '@modules/osint/services/facebook/facebook.col
     PlatformService,
     GroupService,
     TelegramPublicCollector,
+    FacebookCrawlProcessor,
     PostIngestService,
     TelegramCrawlProcessor,
     NewsExtractorBridgeService,

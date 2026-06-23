@@ -189,7 +189,7 @@ export class FacebookCollector {
     return context;
   }
 
-  // Helper kieerm tra session còn sống không
+  // Helper kiem tra session còn sống không
   private async isSessionAlive(context: BrowserContext): Promise<boolean> {
     const page = await context.newPage();
     try {
@@ -597,6 +597,63 @@ export class FacebookCollector {
     try {
       const context = await this.getAuthenticatedContext(browser, account);
       return await this.scrapePostDetail(context, target);
+    } finally {
+      await browser.close();
+    }
+  }
+
+  // Helper: sleep -> delay ngau nhien 15s+
+  private sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // Gói toàn bộ luồng 1 group thành 1 hàm để processor gọi
+  // Flow: launch browser → auth → scrape IDs → loop scrape detail (cap+delay) → return
+
+  async collect(
+    account: OsintFacebookAccount,
+    entryUrl: string,
+  ): Promise<{
+    ok: boolean;
+    posts: RawPost[];
+    error?: string;
+    checkpoint?: string;
+  }> {
+    // launch browser
+    const browser = await this.launchBrowser();
+
+    // auth
+    try {
+      const context = await this.getAuthenticatedContext(browser, account);
+      const ids = await this.scrapeGroupPostIds(context, entryUrl);
+      const cap = Number(this.configService.get('FB_MAX_POSTS_PER_RUN')) || 6; // <= 5 - 8, không 10+
+      const posts: RawPost[] = [];
+      let consecutiveNulls = 0; // đếm null liên tiếp -> phát hiẹn bị throttle
+      for (const { externalPostId, postUrl } of ids.slice(0, cap)) {
+        const detail = await this.scrapePostDetail(context, {
+          externalPostId,
+          postUrl,
+        });
+        if (detail) {
+          posts.push(detail);
+          consecutiveNulls = 0; // cào được -> reset
+        } else {
+          consecutiveNulls++;
+          if (consecutiveNulls >= 2) {
+            this.logger.warn(
+              `[${account.label}] ${consecutiveNulls} permalink null liên tiếp — dừng group sớm`,
+            );
+            break;
+          }
+        }
+        // Delay ngau nhien >= 15s
+        await this.sleep(15_000 + Math.random() * 10_000);
+      }
+      return { ok: true, posts };
+    } catch (e: unknown) {
+      const error = e instanceof Error ? e.message : String(e);
+      // Tách checkpoint để processor biết KHÔNG markCheckpoint lần 2 (auth đã mark rồi)
+      if (error.includes('checkpoint')) {
+        return { ok: false, posts: [], checkpoint: error };
+      }
+      return { ok: false, posts: [], error };
     } finally {
       await browser.close();
     }

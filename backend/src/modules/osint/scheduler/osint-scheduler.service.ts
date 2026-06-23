@@ -69,4 +69,39 @@ export class OsintSchedulerService {
     }
     this.logger.log(`Đã lên lịch crawl ${sources.length} nguồn báo scrape`);
   }
+
+  // Cron FB phải thưa nhau ra ( >=2-3h/group), mỗi tick chỉ đẩy 1-2 group cũ nhất
+  @Cron(CronExpression.EVERY_HOUR)
+  async scheduleFacebookCrawl() {
+    // 1. Guard: chưa seed platform facebook thì bỏ qua, không làm sập cron
+    const facebook = await this.platformRepo.findOne({
+      where: { name: 'facebook' },
+    });
+    if (!facebook) return;
+
+    const groups = await this.groupRepo.find({
+      where: { platformId: facebook.id, isActive: true },
+    });
+
+    // 2. Chỉ lấy group đã quá hạn crawl (mặc định 3h nếu crawlIntervalHours null)
+    const due = groups.filter((g) => {
+      const intervalH = g.crawlIntervalHours ?? 3;
+      if (!g.lastCrawledAt) return true; // Chưa crawl bao giờ
+      const hoursSince = (Date.now() - g.lastCrawledAt.getTime()) / 3.6e6;
+      return hoursSince > intervalH;
+    });
+    // 3. Stagger: ưu tiên group cũ nhất, mỗi tick chỉ 1 - 2 group (tránh đốt acct)
+    due.sort((a, b) => {
+      const ta = a.lastCrawledAt?.getTime() ?? 0;
+      const tb = b.lastCrawledAt?.getTime() ?? 0;
+      return ta - tb;
+    });
+    const batch = due.slice(0, 2);
+    for (const group of batch) {
+      await this.crawlQueue.add('crawl-facebook-group', { groupId: group.id });
+    }
+    this.logger.log(
+      `Đã lên lịch crawl ${batch.length} group Facebook (due=${due.length})`,
+    );
+  }
 }
