@@ -45,7 +45,9 @@ async function main() {
     const existing = await repo.findOneBy({ label });
     if (existing) {
       await repo.delete({ id: existing.id });
-      console.log(`♻️  Account "${label}" đã tồn tại → xóa, tạo lại theo .env.`);
+      console.log(
+        `♻️  Account "${label}" đã tồn tại → xóa, tạo lại theo .env.`,
+      );
     }
     const acc = await manager.create(label, loginId, password);
     console.log(

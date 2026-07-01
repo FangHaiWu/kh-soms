@@ -31,7 +31,8 @@
     "test:fb-scrape-ids": "ts-node -r tsconfig-paths/register src/scripts/test-fb-scrape-ids.ts",
     "test:fb-scrape-detail": "ts-node -r tsconfig-paths/register src/scripts/test-fb-scrape-detail.ts",
     "test:fb-collect": "ts-node -r tsconfig-paths/register src/scripts/test-fb-collect.ts",
-    "capture:fb-session": "ts-node -r tsconfig-paths/register src/scripts/capture-fb-session.ts"
+    "capture:fb-session": "ts-node -r tsconfig-paths/register src/scripts/capture-fb-session.ts",
+    "test-facebook-processor": "ts-node -r tsconfig-paths/register src/scripts/test-facebook-processor.ts"
   },
   "dependencies": {
     "@nestjs/bull": "^11.0.4",

@@ -26,7 +26,9 @@ async function main() {
   try {
     const account = await repo.findOneBy({ label });
     if (!account) {
-      console.error(`❌ Chưa có account "${label}". Chạy: npm run add:fb-account`);
+      console.error(
+        `❌ Chưa có account "${label}". Chạy: npm run add:fb-account`,
+      );
       exitCode = 1;
     } else {
       const ok = await collector.captureManualSession(account);
@@ -35,7 +37,9 @@ async function main() {
         await repo.update({ id: account.id }, { status: 'active' });
         console.log(`🎉 [${label}] session đã lưu, status='active'.`);
       } else {
-        console.error(`⚠️  [${label}] không bắt được session (hết giờ chờ login tay).`);
+        console.error(
+          `⚠️  [${label}] không bắt được session (hết giờ chờ login tay).`,
+        );
         exitCode = 1;
       }
     }
