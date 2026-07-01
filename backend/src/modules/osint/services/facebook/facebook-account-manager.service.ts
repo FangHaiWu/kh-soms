@@ -112,7 +112,13 @@ export class FacebookAccountManager {
       },
     );
   }
-
+  // Relogin khi session het han giua vong crawl
+  async markNeedsRelogin(accountId: string): Promise<void> {
+    await this.accountRepo.update(
+      { id: accountId },
+      { status: 'checkpoint', lastCheckpointedAt: new Date() },
+    );
+  }
   // Sử dụng session để đăng nhập
   // Bước ① — Thêm saveSession + getSession vào FacebookAccountManager (manager đã có accountRepo + encryptionService)
   // Lưu session: Nhận storageState JSON -> mã hóa AES-256 -> lưu encrypted_session
@@ -141,11 +147,4 @@ export class FacebookAccountManager {
     if (!account.encryptedSession) return null;
     return this.encryptionService.decrypt(account.encryptedSession);
   }
-
-  //      Bước ② — Lấy storageState sau khi login success (trong collector).
-  //              Chỗ login() trả 'success', caller cần export await context.storageState() → JSON.stringify → đưa cho saveSession.
-  //              Việc này đặt trong method getAuthenticatedContext (thay dần verifyLogin), hoặc tạm thời trong script test để verify trước.
-
-  //      Bước ③ — Verify: chạy → login pass → DB cột encrypted_session có ciphertext (không phải JSON thô);
-  //              chạy lần 2 → tái dùng session, không thấy form login nữa.
 }

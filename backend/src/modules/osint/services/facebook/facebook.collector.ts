@@ -164,29 +164,19 @@ export class FacebookCollector {
       // 1. Kiểm tra session còn sống: mở fb -> xem có bị đá về /login không + còn c_user không
       if (await this.isSessionAlive(context)) {
         this.logger.log(`[${account.label}] dùng lại session đã lưu`);
-        return context;
+        return context; // <- đường sống DUY NHẤT
       }
       await context.close(); // session hết hạn -> close context
-      this.logger.warn(`[${account.label}] session hết hạn, login bằng form`);
+      this.logger.warn(`[${account.label}] session hết hạn`);
     }
 
-    // 2. Session không có/ hết hạn, login bằng form
-    const context = await this.newStealthContext(browser);
-    const { loginIdentifier, password } =
-      await this.accountManager.getCredentials(account.id);
-    const result = await this.login(context, loginIdentifier, password);
-    if (result === 'checkpoint') {
-      await this.accountManager.markCheckpoint(account.id);
-      throw new Error(`[${account.label}] dính checkpoint khi login`);
-    }
-    if (result === 'failed') {
-      throw new Error(`[${account.label}] login thất bại`);
-    }
-    // 3. success -> EXPORT storageState -> lưu (mã hóa) để lần sau khỏi login
-    const state = await context.storageState();
-    await this.accountManager.saveSession(account.id, JSON.stringify(state));
-    this.logger.log(`[${account.label}] login thành công`);
-    return context;
+    // 2. Không có session sống (Session không có/ hết hạn)
+    // -> Không auto form-login trong vòng crawl nền --> nếu auto-login thì sẽ đốt acct
+    // Mark cần login tay -> Chờ người chạy
+    await this.accountManager.markNeedsRelogin(account.id);
+    throw new Error(
+      `[${account.label}] không có session sống, cần capture lại (checkpoint)`,
+    );
   }
 
   // Helper kiem tra session còn sống không
