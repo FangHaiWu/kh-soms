@@ -15,6 +15,7 @@ import { Repository, LessThan } from 'typeorm';
 import { OsintFacebookAccount } from '@modules/osint/entities/osint-facebook-account.entity';
 import { EncryptionService } from '@common/crypto/encryption.service';
 import { ConfigService } from '@nestjs/config';
+import { AlertService } from '@modules/osint/services/alert/alert.service';
 
 @Injectable()
 export class FacebookAccountManager {
@@ -26,6 +27,7 @@ export class FacebookAccountManager {
     private readonly accountRepo: Repository<OsintFacebookAccount>,
     private readonly encryptionService: EncryptionService,
     private readonly configService: ConfigService,
+    private readonly alertService: AlertService,
   ) {
     this.maxCrawlPerDay = Number(
       this.configService.get('FB_MAX_CRAWLS_PER_DAY', 5),
@@ -111,13 +113,43 @@ export class FacebookAccountManager {
         lastCheckpointedAt: new Date(),
       },
     );
+
+    // Báo Admin nếu acct rơi checkpoint (session chết) -> cần capture:fb-session thủ công
+    await this.alertService.createSystemAlert({
+      alertType:
+        newStatus === 'retired'
+          ? 'fb_account_retired'
+          : 'fb_account_checkpoint',
+      severity: newStatus === 'retired' ? 'critical' : 'warning',
+      title:
+        newStatus === 'retired'
+          ? `Tài khoản FB ${account.label} đã retire (đủ ${this.maxCheckpoints} checkpoint)`
+          : `Tài khoản FB ${account.label} dính checkpoint ${newCount}/${this.maxCheckpoints} lần`,
+      description:
+        newStatus === 'retired'
+          ? `Acct đã retire vĩnh viễn — thêm acct công cụ mới vào pool`
+          : `Acct tự chuyển checkpoint do session hết hạn. Chạy: FB_TEST_LABEL=${account.label} npm run capture:fb-session`,
+      sourceRefIds: [account.id],
+    });
   }
   // Relogin khi session het han giua vong crawl
   async markNeedsRelogin(accountId: string): Promise<void> {
+    const account = await this.accountRepo.findOneBy({ id: accountId });
+    if (!account)
+      throw new NotFoundException(`Tài khoản ${accountId} không tồn tại`);
     await this.accountRepo.update(
       { id: accountId },
       { status: 'checkpoint', lastCheckpointedAt: new Date() },
     );
+
+    // Báo Admin: acct rơi checkpoint (session chết) -> cần capture:fb-session thủ công
+    await this.alertService.createSystemAlert({
+      alertType: 'fb_account_needs_relogin',
+      severity: 'warning',
+      title: `Tài khoản FB ${account.label} cần login lại (session hết hạn)`,
+      description: `Acct tự chuyển checkpoint do session hết hạn. Chạy: FB_TEST_LABEL=${account.label} npm run capture:fb-session`,
+      sourceRefIds: [account.id],
+    });
   }
   // Sử dụng session để đăng nhập
   // Bước ① — Thêm saveSession + getSession vào FacebookAccountManager (manager đã có accountRepo + encryptionService)

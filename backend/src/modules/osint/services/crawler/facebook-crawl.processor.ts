@@ -9,6 +9,7 @@ import { OsintPlatform } from '../../entities/osint-platform.entity';
 import { FacebookCollector } from '@modules/osint/services/facebook/facebook.collector';
 import { FacebookAccountManager } from '@modules/osint/services/facebook/facebook-account-manager.service';
 import { PostIngestService } from '../ingest/post-ingest.service';
+import { AlertService } from '../alert/alert.service';
 
 /**
  * FacebookCrawlProcessor — worker nền xử lý 1 job = 1 group/page Facebook.
@@ -29,6 +30,7 @@ export class FacebookCrawlProcessor {
     private accountManager: FacebookAccountManager,
     private collector: FacebookCollector,
     private ingest: PostIngestService,
+    private alertService: AlertService,
   ) {}
 
   /**
@@ -43,6 +45,15 @@ export class FacebookCrawlProcessor {
     const account = await this.accountManager.pickAvailable();
     if (!account) {
       this.logger.warn('Không có acct Facebook active - bỏ qua');
+      await this.alertService.createSystemAlert({
+        alertType: 'fb_account_exhausted',
+        severity: 'critical',
+        title:
+          'Pool tài khoản Facebook đã cạn - mọi acct đều checkpoint/retired',
+        description:
+          'Không còn tài khoản Facebook nào active để crawl group/page công khai. Vui lòng kiểm tra pool tài khoản.',
+        dedupWindowMinutes: 30, // tránh spam alert nếu nhiều job cùng lúc
+      });
       return; // cả pool checkpoint/retired -> tránh đốt acct
     }
 

@@ -99,7 +99,49 @@ export class AlertService {
       });
       return await this.alertRepo.save(alert);
     } catch (error) {
-      this.logger.error(`Loi khi tao alert: ${error}`);
+      this.logger.error(`Lỗi khi tạo alert: ${error}`);
+      return null;
+    }
+  }
+
+  // Alert vận hành/hệ thống (không gắn NLP) --> Vd: acct FB rơi checkpoint, pool cạn
+  // Ghi cùng bảng osint_alerts để admin thấy chung 1 surface, nhưng alert này không liên quan đến bài viết cụ thể nào (không có sourceRefIds)
+  async createSystemAlert(params: {
+    alertType: string;
+    severity: 'info' | 'warning' | 'critical';
+    title: string;
+    description?: string;
+    sourceRefIds?: string[]; // Vd: [accountId] để truy vết account FB nào gặp sự cố
+    dedupWindowMinutes?: number; // Nếu đã có alert cùng loại trong khoảng thời gian này thì bỏ qua (tránh spam alert)
+  }): Promise<OsintAlert | null> {
+    try {
+      const { dedupWindowMinutes, ...restParams } = params; // Loại bỏ dedupWindowMinutes khỏi params trước khi tạo alert
+      // Chỉ dedup khi caller yêu cầu cầu(alert theo trạng thái như checkpoint KHÔNG cần - đã dedup tự nhiên)
+      if (dedupWindowMinutes) {
+        const oneWindowAgo = new Date(
+          Date.now() - dedupWindowMinutes * 60 * 1000,
+        );
+        const existing = await this.alertRepo
+          .createQueryBuilder('alert')
+          .where('alert.alert_type = :t', { t: params.alertType })
+          .andWhere('alert.created_at > :oneWindowAgo', { oneWindowAgo })
+          .getOne();
+        if (existing) {
+          this.logger.debug(
+            `Alert ${params.alertType} đã có trong ${params.dedupWindowMinutes} phút qua, bỏ qua tạo alert mới (title: ${params.title})`,
+          );
+          return null;
+        }
+      }
+
+      const alert = this.alertRepo.create({
+        ...restParams,
+        isAcknowledged: false,
+      });
+      return await this.alertRepo.save(alert);
+    } catch (error) {
+      // Alert lỗi không được làm gãy luồng crawl, chỉ log lỗi và bỏ qua
+      this.logger.error(`Lỗi khi tạo system alert: ${error}`);
       return null;
     }
   }
