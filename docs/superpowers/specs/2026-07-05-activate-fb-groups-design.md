@@ -44,6 +44,7 @@ WHERE platform_id = (SELECT id FROM osint.osint_platforms WHERE name = 'facebook
 ```
 
 Đặc điểm:
+
 - Lọc theo `platform=facebook` (không hard-code URL) → tự bao trọn 7 group FB, kể cả khi thêm/bớt.
 - Không đụng group Telegram (adapter TG thuộc Sprint 3, ngoài phạm vi).
 - Điều kiện `AND is_active=false` → chạy lại an toàn.
@@ -54,12 +55,12 @@ WHERE platform_id = (SELECT id FROM osint.osint_platforms WHERE name = 'facebook
 
 **2b. Reclassify "Beat Khánh Hòa"** (dòng target_type=profile) sang cộng đồng:
 
-| Field | Cũ | Mới |
-|-------|-----|-----|
-| `description` | "Cá nhân - admin nhóm Hóng biến" | "Trang cộng đồng" |
-| `tags` | `CA-NHAN, KHANH-HOA, UU-TIEN-THAP, CHUA-XAC-MINH` | `CONG-DONG, KHANH-HOA, UU-TIEN-CAO, CHUA-XAC-MINH` |
-| `trust_level` | 1 | 2 |
-| `platform_specific_data.target_type` | `"profile"` | **giữ nguyên `"profile"`** (URL vẫn là profile.php; collector cần đúng target_type để scrape đúng layout) |
+| Field                                | Cũ                                                | Mới                                                                                                       |
+| ------------------------------------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `description`                        | "Cá nhân - admin nhóm Hóng biến"                  | "Trang cộng đồng"                                                                                         |
+| `tags`                               | `CA-NHAN, KHANH-HOA, UU-TIEN-THAP, CHUA-XAC-MINH` | `CONG-DONG, KHANH-HOA, UU-TIEN-CAO, CHUA-XAC-MINH`                                                        |
+| `trust_level`                        | 1                                                 | 2                                                                                                         |
+| `platform_specific_data.target_type` | `"profile"`                                       | **giữ nguyên `"profile"`** (URL vẫn là profile.php; collector cần đúng target_type để scrape đúng layout) |
 
 ### Thành phần 3 — Vận hành & giám sát (không code thêm)
 

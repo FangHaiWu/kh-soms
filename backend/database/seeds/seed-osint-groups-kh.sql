@@ -1,6 +1,7 @@
 -- ============================================================
 -- SEED osint_groups — CHỈ mạng xã hội (Hướng A: RSS quản lý ở osint_sources)
 -- Tất cả is_active=false: chờ adapter (Telegram Sprint 3, Facebook Sprint 4)
+-- KHÔNG update is_active: trạng thái bật/tắt do migration + vận hành quản lý, seed re-run không được đạp
 -- platform_id lấy bằng subquery; external_group_id = định danh gốc platform
 -- target_type (group/page/profile/channel) lưu trong platform_specific_data
 -- tags theo tag.constants.ts (VIẾT HOA, không dấu, tiếng Việt)
@@ -9,7 +10,7 @@
 -- Chạy: docker exec -i postgres psql -U postgres -d kh_soms < database/seeds/seed-osint-groups-kh.sql
 -- ============================================================
 
--- A) FACEBOOK — chờ adapter Sprint 4 (URL chưa verify được do login-wall)
+-- A) FACEBOOK 
 INSERT INTO osint.osint_groups
   (platform_id, name, url, external_group_id, description, is_active, trust_level, tags, platform_specific_data) VALUES
 ((SELECT id FROM osint.osint_platforms WHERE name='facebook'),
@@ -26,8 +27,8 @@ INSERT INTO osint.osint_groups
 
 ((SELECT id FROM osint.osint_platforms WHERE name='facebook'),
  'Beat Khánh Hòa', 'https://www.facebook.com/profile.php?id=61578579235269', '61578579235269',
- 'Cá nhân - admin nhóm Hóng biến', false, 1,
- ARRAY['CA-NHAN','KHANH-HOA','UU-TIEN-THAP','CHUA-XAC-MINH'],
+ 'Trang cộng đồng', false, 2,
+ ARRAY['CONG-DONG','KHANH-HOA','UU-TIEN-CAO','CHUA-XAC-MINH'],
  '{"target_type":"profile"}'::jsonb),
 
 ((SELECT id FROM osint.osint_platforms WHERE name='facebook'),
@@ -55,7 +56,7 @@ INSERT INTO osint.osint_groups
  '{"target_type":"page"}'::jsonb)
 ON CONFLICT (platform_id, url) DO UPDATE SET
   name=EXCLUDED.name, external_group_id=EXCLUDED.external_group_id, description=EXCLUDED.description,
-  is_active=EXCLUDED.is_active, trust_level=EXCLUDED.trust_level, tags=EXCLUDED.tags,
+   trust_level=EXCLUDED.trust_level, tags=EXCLUDED.tags,
   platform_specific_data=EXCLUDED.platform_specific_data;
 
 -- B) TELEGRAM — đã verify tồn tại + public 07/06/2026, chờ adapter Sprint 3
@@ -74,5 +75,5 @@ INSERT INTO osint.osint_groups
  '{"target_type":"channel"}'::jsonb)
 ON CONFLICT (platform_id, url) DO UPDATE SET
   name=EXCLUDED.name, external_group_id=EXCLUDED.external_group_id, description=EXCLUDED.description,
-  is_active=EXCLUDED.is_active, trust_level=EXCLUDED.trust_level, tags=EXCLUDED.tags,
+   trust_level=EXCLUDED.trust_level, tags=EXCLUDED.tags,
   platform_specific_data=EXCLUDED.platform_specific_data;
