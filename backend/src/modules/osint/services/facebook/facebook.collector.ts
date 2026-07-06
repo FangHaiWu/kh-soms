@@ -174,8 +174,9 @@ export class FacebookCollector {
     // -> Không auto form-login trong vòng crawl nền --> nếu auto-login thì sẽ đốt acct
     // Mark cần login tay -> Chờ người chạy
     await this.accountManager.markNeedsRelogin(account.id);
+    // Marker NEEDS_RELOGIN để collect() phân biệt session-death (lành tính) với checkpoint FB thật
     throw new Error(
-      `[${account.label}] không có session sống, cần capture lại (checkpoint)`,
+      `NEEDS_RELOGIN: [${account.label}] không có session sống, cần capture lại`,
     );
   }
 
@@ -604,7 +605,9 @@ export class FacebookCollector {
     ok: boolean;
     posts: RawPost[];
     error?: string;
-    checkpoint?: string;
+    // Session hết hạn giữa vòng crawl nền: acct đã bị markNeedsRelogin + alert admin.
+    // KHÁC checkpoint FB thật (login form gặp /checkpoint) — đây chỉ là session-death lành tính.
+    needsRelogin?: string;
   }> {
     // launch browser
     const browser = await this.launchBrowser();
@@ -639,9 +642,9 @@ export class FacebookCollector {
       return { ok: true, posts };
     } catch (e: unknown) {
       const error = e instanceof Error ? e.message : String(e);
-      // Tách checkpoint để processor biết KHÔNG markCheckpoint lần 2 (auth đã mark rồi)
-      if (error.includes('checkpoint')) {
-        return { ok: false, posts: [], checkpoint: error };
+      // Session-death: auth đã markNeedsRelogin + alert admin → processor chỉ log, KHÔNG mark lần 2
+      if (error.includes('NEEDS_RELOGIN')) {
+        return { ok: false, posts: [], needsRelogin: error };
       }
       return { ok: false, posts: [], error };
     } finally {

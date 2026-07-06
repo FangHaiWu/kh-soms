@@ -48,9 +48,9 @@ async function main() {
       console.log(`\n=== collect() acct=${label} entry=${ENTRY_URL} ===`);
       const result = await collector.collect(account, ENTRY_URL);
 
-      console.log('  ok        :', result.ok);
-      console.log('  checkpoint :', result.checkpoint ?? '(none)');
-      console.log('  error      :', result.error ?? '(none)');
+      console.log('  ok          :', result.ok);
+      console.log('  needsRelogin:', result.needsRelogin ?? '(none)');
+      console.log('  error       :', result.error ?? '(none)');
       console.log('  posts      :', result.posts.length);
 
       // In gọn từng post + số comment để mắt thường verify

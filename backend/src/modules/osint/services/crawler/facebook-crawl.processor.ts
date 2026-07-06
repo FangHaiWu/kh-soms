@@ -81,9 +81,11 @@ export class FacebookCrawlProcessor {
 
     // 3. Crawl group — collector trả ok=false thay vì throw nên job không bị Bull retry vô ích
     const result = await this.collector.collect(account, group.url);
-    if (result.checkpoint) {
-      // auth đã markCheckpoint -> không mark lần 2
-      this.logger.warn(`[${group.name} acct ${account.label}] checkpoint`);
+    if (result.needsRelogin) {
+      // Session hết hạn: auth đã markNeedsRelogin + alert admin → chỉ log, KHÔNG mark lần 2
+      this.logger.warn(
+        `[${group.name} acct ${account.label}] session hết hạn, cần capture lại (đã alert admin)`,
+      );
       return;
     }
     if (!result.ok) {

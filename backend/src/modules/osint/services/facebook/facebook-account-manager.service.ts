@@ -92,43 +92,37 @@ export class FacebookAccountManager {
     await this.accountRepo.update(accountId, { lastUsedAt: new Date() });
   }
 
-  // Tăng đếm checkpoint : Nếu đạt ngưỡng -> retire vĩnh viễn, chưa thì -> checkpoint (cooldown)
+  // Tăng đếm checkpoint. KHÔNG auto-retire — status luôn 'checkpoint', leo thang alert khi ≥ ngưỡng.
   async markCheckpoint(accountId: string): Promise<void> {
     // 1. Load để biết count hiện tại
     const account = await this.accountRepo.findOneBy({ id: accountId });
     if (!account)
       throw new NotFoundException(`Tài khoản ${accountId} không tồn tại`);
 
-    // 2. Tính count mới + quyết định status
+    // 2. Tính count mới. KHÔNG auto-retire: tool-account dùng credential CỦA MÌNH nên quý,
+    //    retire vĩnh viễn là quyết định THỦ CÔNG của admin. checkpoint_count vẫn đếm để leo thang alert.
     const newCount = account.checkpointCount + 1;
-    const newStatus =
-      newCount >= this.maxCheckpoints ? 'retired' : 'checkpoint';
+    // Ngưỡng LEO THANG ALERT (không còn là ngưỡng retire): bị gắn cờ ≥ ngưỡng → báo critical
+    const isRepeated = newCount >= this.maxCheckpoints;
 
-    // 3. Update
+    // 3. Update — status LUÔN 'checkpoint', không bao giờ tự chuyển 'retired'
     await this.accountRepo.update(
       { id: accountId },
       {
         checkpointCount: newCount,
-        status: newStatus,
+        status: 'checkpoint',
         lastCheckpointedAt: new Date(),
       },
     );
 
-    // Báo Admin nếu acct rơi checkpoint (session chết) -> cần capture:fb-session thủ công
+    // Báo Admin: acct dính checkpoint. Leo thang critical khi bị gắn cờ ≥ ngưỡng → gợi ý admin retire tay.
     await this.alertService.createSystemAlert({
-      alertType:
-        newStatus === 'retired'
-          ? 'fb_account_retired'
-          : 'fb_account_checkpoint',
-      severity: newStatus === 'retired' ? 'critical' : 'warning',
-      title:
-        newStatus === 'retired'
-          ? `Tài khoản FB ${account.label} đã retire (đủ ${this.maxCheckpoints} checkpoint)`
-          : `Tài khoản FB ${account.label} dính checkpoint ${newCount}/${this.maxCheckpoints} lần`,
-      description:
-        newStatus === 'retired'
-          ? `Acct đã retire vĩnh viễn — thêm acct công cụ mới vào pool`
-          : `Acct tự chuyển checkpoint do session hết hạn. Chạy: FB_TEST_LABEL=${account.label} npm run capture:fb-session`,
+      alertType: 'fb_account_checkpoint',
+      severity: isRepeated ? 'critical' : 'warning',
+      title: `Tài khoản FB ${account.label} dính checkpoint ${newCount}/${this.maxCheckpoints} lần`,
+      description: isRepeated
+        ? `Acct bị gắn cờ ${newCount} lần (≥ ngưỡng ${this.maxCheckpoints}). Cân nhắc retire tay hoặc bổ sung acct mới vào pool. Verify: FB_TEST_LABEL=${account.label} npm run capture:fb-session`
+        : `Acct dính checkpoint. Verify identity trên FB rồi chạy: FB_TEST_LABEL=${account.label} npm run capture:fb-session`,
       sourceRefIds: [account.id],
     });
   }

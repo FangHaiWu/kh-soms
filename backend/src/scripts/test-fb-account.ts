@@ -2,7 +2,7 @@
  * Smoke test CHẠY THẬT FacebookAccountManager trên Postgres (không mock).
  * Kiểm: create → ciphertext trong DB (KHÔNG plaintext) → pickAvailable →
  *        getCredentials (decrypt khớp) → recordUsage (count++) →
- *        markCheckpoint x3 (checkpoint → retired) → cleanup.
+ *        markCheckpoint x3 (LUÔN checkpoint, KHÔNG auto-retire) → cleanup.
  *
  * Chạy:  npx ts-node -r tsconfig-paths/register src/scripts/test-fb-account.ts
  * (cần Postgres + Redis đang chạy)
@@ -75,7 +75,9 @@ async function main() {
     check('crawlCountToday 0 → 1', afterUse?.crawlCountToday === 1);
     check('lastUsedAt được set', !!afterUse?.lastUsedAt);
 
-    console.log('\n=== 6. markCheckpoint() x3 → checkpoint → retired ===');
+    console.log(
+      '\n=== 6. markCheckpoint() x3 → LUÔN checkpoint (KHÔNG auto-retire) ===',
+    );
     await manager.markCheckpoint(createdId);
     let s = await repo.findOneBy({ id: createdId });
     check(
@@ -92,16 +94,17 @@ async function main() {
 
     await manager.markCheckpoint(createdId);
     s = await repo.findOneBy({ id: createdId });
+    // Tool-account KHÔNG auto-retire: dù đủ ngưỡng vẫn giữ 'checkpoint' (retire là việc thủ công của admin)
     check(
-      'lần 3: count=3, status=RETIRED',
-      s?.checkpointCount === 3 && s?.status === 'retired',
+      'lần 3: count=3, status VẪN checkpoint (không auto-retire)',
+      s?.checkpointCount === 3 && s?.status === 'checkpoint',
     );
 
-    console.log('\n=== 7. account đã retire KHÔNG còn được pick ===');
-    // tạo điều kiện: chỉ account test này có thể bị ảnh hưởng — kiểm gián tiếp
+    console.log('\n=== 7. account checkpoint KHÔNG còn được pick ===');
+    // pickAvailable lọc status='active' → acct checkpoint bị loại (dù chưa retire)
     const pickedAfter = await manager.pickAvailable();
     check(
-      'pickAvailable KHÔNG trả account đã retire',
+      'pickAvailable KHÔNG trả account đang checkpoint',
       !pickedAfter || pickedAfter.id !== createdId,
     );
   } finally {
