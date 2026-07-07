@@ -60,6 +60,30 @@ export class OsintPostNlp {
   })
   processingStatus: string;
 
+  @Column('float', { name: 'sentiment_score', nullable: true })
+  sentimentScore: number;
+
+  @Column('jsonb', { name: 'entities', nullable: true })
+  entities: any;
+
+  @Column('boolean', { name: 'is_notable', default: false })
+  isNotable: boolean;
+
+  @Column('float', { name: 'notability_score', nullable: true })
+  notabilityScore: number;
+
+  @Column('jsonb', { name: 'notability_reasons', nullable: true })
+  notabilityReasons: string[];
+
+  @Column('boolean', { name: 'gate_passed', default: false })
+  gatePassed: boolean;
+
+  @Column('jsonb', { name: 'signal_features', nullable: true })
+  signalFeatures: Record<string, number>;
+
+  @Column('float', { name: 'credibility', nullable: true })
+  credibility: number;
+
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 

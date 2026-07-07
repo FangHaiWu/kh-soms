@@ -24,7 +24,7 @@
 
 **Tạo mới:**
 - `src/modules/osint/entities/osint-gate-config.entity.ts` — config trọng số/ngưỡng Gate (1 hàng active).
-- `src/database/migrations/<ts>-S5aPipelineSpine.ts` — cột mới + bảng gate_config + seed trust baseline.
+- `database/migrations/007-sprint5a-pipeline-spine.sql` — **file SQL thủ công** (mẫu 000-006, KHÔNG phải TypeORM migration): cột mới + bảng gate_config + seed trust baseline.
 - `src/modules/osint/services/normalize/normalize.service.ts` (+ `.spec.ts`) — NFC, bóc HTML, content_hash.
 - `src/modules/osint/services/trust/trust.service.ts` (+ `.spec.ts`) — platform prior, source trust, corroboration cluster, credibility, Wilson stub.
 - `src/modules/osint/services/gate/gate.service.ts` (+ `.spec.ts`) — 3 lớp Gate, z-score, feature log.
@@ -44,7 +44,7 @@
 
 **Files:**
 - Create: `src/modules/osint/entities/osint-gate-config.entity.ts`
-- Create: `src/database/migrations/<timestamp>-S5aPipelineSpine.ts`
+- Create: `database/migrations/007-sprint5a-pipeline-spine.sql` (file SQL thủ công)
 - Modify: `src/modules/osint/entities/osint-post-nlp.entity.ts`
 - Modify: `src/modules/osint/entities/osint-post.entity.ts`
 
@@ -53,7 +53,7 @@
 
 - [ ] **Step 1: Đọc entity hiện tại để lấy tên cột/schema thật**
 
-Đọc `osint-post-nlp.entity.ts`, `osint-post.entity.ts` xác nhận `@Entity({ schema: 'osint' })` và style `@Column({ name: ... })`. Xem một migration cũ trong `src/database/migrations/` để copy convention (tên class, `up`/`down`, `queryRunner.query`).
+Đọc `osint-post-nlp.entity.ts`, `osint-post.entity.ts` xác nhận `@Entity({ schema: 'osint' })` và style `@Column({ name: ... })`. Xem `database/migrations/006-sprint4-activate-fb-groups.sql` để copy convention (comment tiếng Việt đầu file, SQL thuần, tham chiếu `SELECT id FROM osint.osint_platforms WHERE name=...`).
 
 - [ ] **Step 2: Thêm cột vào 2 entity + tạo entity gate-config**
 
@@ -74,26 +74,26 @@ Thêm cột tương ứng vào `OsintPostNlp` và `OsintPost` (đúng `name` sna
 
 **Cạm bẫy:** entity chỉ khai báo mapping — KHÔNG tự tạo cột DB. Phải có migration (Step 3). Đừng bật `synchronize`.
 
-- [ ] **Step 3: Viết migration `up` + `down`**
+- [ ] **Step 3: Viết file SQL `007-sprint5a-pipeline-spine.sql`**
 
-`up`: `ALTER TABLE osint.osint_post_nlp ADD COLUMN ...` cho 8 cột; `ALTER TABLE osint.osint_posts ADD COLUMN verdict/independent_cluster_id`; `CREATE TABLE osint.osint_gate_config (...)`; seed trust baseline:
+Dùng `ADD COLUMN IF NOT EXISTS` (idempotent, chạy lại không lỗi). Nội dung: `ALTER TABLE osint.osint_post_nlp ADD COLUMN ...` cho 8 cột; `ALTER TABLE osint.osint_posts ADD COLUMN verdict/independent_cluster_id`; `CREATE TABLE IF NOT EXISTS osint.osint_gate_config (...)`; seed trust baseline:
 ```sql
--- Seed baseline trust đúng phương pháp (thay default=3). Match theo osint_platforms.name.
-UPDATE osint.osint_platforms SET trust_level = 5 WHERE name IN ('rss','web_news');
+-- Seed baseline trust đúng phương pháp (thay default=3). Match theo osint_platforms.name THỰC TẾ.
+UPDATE osint.osint_platforms SET trust_level = 5 WHERE name IN ('web_news','rss');
 UPDATE osint.osint_platforms SET trust_level = 3 WHERE name = 'youtube';
 UPDATE osint.osint_platforms SET trust_level = 2 WHERE name IN ('facebook','reddit','threads','instagram');
 UPDATE osint.osint_platforms SET trust_level = 1 WHERE name IN ('telegram','tiktok');
 INSERT INTO osint.osint_gate_config (id, signal_weights, thresholds, is_active)
 VALUES (gen_random_uuid(), NULL, '{"zScoreCutoff":2,"hotPriorityMax":2,"minCorrobK":2}'::jsonb, true);
 ```
-`down`: DROP các cột/bảng vừa thêm; không cần revert seed trust.
+File SQL không có `down` (giống 000-006 — one-way). Rollback thủ công nếu cần.
 
-**Cạm bẫy:** xác minh `osint_platforms.name` **thực tế** bằng `SELECT DISTINCT name` trước khi viết UPDATE — tên platform phải khớp seed cũ, nếu sai thì UPDATE không match hàng nào (im lặng, trust vẫn =3).
+**Cạm bẫy:** ⚠️ **Trước khi viết UPDATE, chạy `SELECT DISTINCT name FROM osint.osint_platforms;`** — sửa danh sách `IN (...)` cho khớp tên THẬT trong DB của bạn. Sai tên → UPDATE 0 hàng (im lặng), trust đứng ở 3.
 
-- [ ] **Step 4: Chạy migration + verify**
+- [ ] **Step 4: Áp file SQL + verify**
 
-Run: `npm run migration:run` (kiểm tra tên script thật trong `package.json`).
-Expected: chạy không lỗi. `psql` kiểm: `\d osint.osint_post_nlp` thấy cột mới; `SELECT name, trust_level FROM osint.osint_platforms` thấy baseline đúng.
+Áp `007-...sql` bằng cách bạn vẫn dùng cho 000-006 (psql/công cụ). 
+Expected: chạy không lỗi. Kiểm: `\d osint.osint_post_nlp` thấy cột mới; `SELECT name, trust_level FROM osint.osint_platforms;` thấy baseline đúng.
 
 - [ ] **Step 5: Verify build**
 

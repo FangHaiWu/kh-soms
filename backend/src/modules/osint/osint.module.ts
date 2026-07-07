@@ -36,6 +36,7 @@ import { CommonModule } from 'src/common/common.module';
 import { FacebookAccountManager } from '@modules/osint/services/facebook/facebook-account-manager.service';
 import { FacebookCollector } from '@modules/osint/services/facebook/facebook.collector';
 import { FacebookCrawlProcessor } from './services/crawler/facebook-crawl.processor';
+import { OsintGateConfig } from './entities/osint-gate-config.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -51,6 +52,7 @@ import { FacebookCrawlProcessor } from './services/crawler/facebook-crawl.proces
       OsintCrawlLog,
       OsintPostNlp,
       OsintFacebookAccount,
+      OsintGateConfig,
     ]),
     BullModule.registerQueue({ name: 'osint-crawl' }),
     CommonModule, // <- thêm để OsintModule dùng được EncryptionService
