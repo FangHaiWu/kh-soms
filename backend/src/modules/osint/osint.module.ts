@@ -38,6 +38,10 @@ import { FacebookCollector } from '@modules/osint/services/facebook/facebook.col
 import { FacebookCrawlProcessor } from './services/crawler/facebook-crawl.processor';
 import { OsintGateConfig } from './entities/osint-gate-config.entity';
 import { EwmWeightJob } from '@modules/osint/services/gate/ewm-weight.job/ewm-weight.job';
+import { NormalizeService } from './services/normalize/normalize.service';
+import { TrustService } from './services/trust/trust.service';
+import { GateService } from './services/gate/gate.service';
+import { NlpProcessProcessor } from './services/nlp-process/nlp-process.processor';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -56,6 +60,7 @@ import { EwmWeightJob } from '@modules/osint/services/gate/ewm-weight.job/ewm-we
       OsintGateConfig,
     ]),
     BullModule.registerQueue({ name: 'osint-crawl' }),
+    BullModule.registerQueue({ name: 'osint-nlp' }), // queue phân tích NLP tách khỏi crawl
     CommonModule, // <- thêm để OsintModule dùng được EncryptionService
   ],
 
@@ -80,6 +85,10 @@ import { EwmWeightJob } from '@modules/osint/services/gate/ewm-weight.job/ewm-we
     FacebookAccountManager,
     FacebookCollector,
     EwmWeightJob,
+    NormalizeService,
+    TrustService,
+    GateService,
+    NlpProcessProcessor,
   ],
   controllers: [OsintController, PlatformController, GroupsController],
   exports: [TypeOrmModule],
