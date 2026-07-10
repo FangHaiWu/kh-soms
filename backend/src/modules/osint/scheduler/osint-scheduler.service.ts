@@ -7,6 +7,7 @@ import { OsintPlatform } from '../entities/osint-platform.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { EwmWeightJob } from '../services/gate/ewm-weight.job/ewm-weight.job';
 
 @Injectable()
 export class OsintSchedulerService {
@@ -19,7 +20,17 @@ export class OsintSchedulerService {
     private groupRepo: Repository<OsintGroup>,
     @InjectRepository(OsintPlatform)
     private platformRepo: Repository<OsintPlatform>,
+    private ewmWeightJob: EwmWeightJob,
   ) {}
+
+  // S5a: tính lại trọng số Gate (EWM) từ signal_features tích lũy. Hằng ngày là đủ —
+  // trọng số xếp hạng không cần realtime; chạy khi đã có kha khá mẫu để entropy có nghĩa.
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async scheduleEwmWeights() {
+    this.logger.log('Bắt đầu tính lại trọng số Gate (EWM)');
+    await this.ewmWeightJob.run();
+    this.logger.log('Đã cập nhật trọng số Gate (EWM) vào osint_gate_config');
+  }
 
   // Cron job chay moi 1h (co the dieu chinh thoi gian tuong ung)
   @Cron(CronExpression.EVERY_5_MINUTES) // Chạy moi 15 phut
