@@ -29,6 +29,7 @@ import { TelegramPublicCollector } from './services/collectors/telegram-public.c
 import { PostIngestService } from './services/ingest/post-ingest.service';
 import { TelegramCrawlProcessor } from './services/crawler/telegram-crawl.processor';
 import { NewsExtractorBridgeService } from './services/news-extractor/news-extractor-bridge.service';
+import { NlpAnalyzerBridgeService } from './services/nlp-analyzer/nlp-analyzer-bridge.service';
 import { NewsCrawlCollector } from './services/collectors/news-crawl.collector';
 import { NewsCrawlProcessor } from './services/crawler/news-crawl.processor';
 import { OsintFacebookAccount } from '@modules/osint/entities/osint-facebook-account.entity';
@@ -80,6 +81,7 @@ import { NlpProcessProcessor } from './services/nlp-process/nlp-process.processo
     PostIngestService,
     TelegramCrawlProcessor,
     NewsExtractorBridgeService,
+    NlpAnalyzerBridgeService,
     NewsCrawlCollector,
     NewsCrawlProcessor,
     FacebookAccountManager,
