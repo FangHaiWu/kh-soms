@@ -13,7 +13,7 @@ import { SlangDictionaryService } from '../slang-dictionary.service';
 import { TrustService } from '../trust/trust.service';
 import { GateService, GateThresholds } from '../gate/gate.service';
 import { AlertService } from '../alert/alert.service';
-
+import { NlpAnalyzerBridgeService } from '@modules/osint/services/nlp-analyzer/nlp-analyzer-bridge.service';
 // Ngưỡng mặc định khi chưa có hàng osint_gate_config active (worker vẫn chạy được).
 const DEFAULT_THRESHOLDS: GateThresholds = {
   zScoreCutoff: 2,
@@ -38,8 +38,10 @@ export class NlpProcessProcessor {
 
   constructor(
     @InjectRepository(OsintPost) private postRepo: Repository<OsintPost>,
-    @InjectRepository(OsintPostNlp) private postNlpRepo: Repository<OsintPostNlp>,
-    @InjectRepository(OsintPlatform) private platformRepo: Repository<OsintPlatform>,
+    @InjectRepository(OsintPostNlp)
+    private postNlpRepo: Repository<OsintPostNlp>,
+    @InjectRepository(OsintPlatform)
+    private platformRepo: Repository<OsintPlatform>,
     @InjectRepository(OsintGateConfig)
     private gateConfigRepo: Repository<OsintGateConfig>,
     private normalize: NormalizeService,
@@ -48,6 +50,7 @@ export class NlpProcessProcessor {
     private trust: TrustService,
     private gate: GateService,
     private alert: AlertService,
+    private nerBridge: NlpAnalyzerBridgeService,
   ) {}
 
   @Process('process-post')
@@ -75,9 +78,12 @@ export class NlpProcessProcessor {
       post.contentHash = contentHash;
 
       // 3. NLP rẻ (keyword + slang). NER/sentiment = khe cắm S5b (chưa gọi).
-      const nlpResult = await this.nlpService.analyzeArticle('', normalizedContent);
+      const nlpResult = await this.nlpService.analyzeArticle(
+        '',
+        normalizedContent,
+      );
       const slang = await this.slangService.detectSlang('', normalizedContent);
-
+      const nerEntities = await this.nerBridge.analyze(normalizedContent);
       // 4. Trust: platform prior → source trust; gom cụm corroboration theo content_hash → credibility
       const platform = await this.platformRepo.findOne({
         where: { id: post.platformId },
@@ -96,7 +102,10 @@ export class NlpProcessProcessor {
       // 5. Gate: dựng input đa tín hiệu → quyết định notability (OR)
       const thresholds = await this.loadThresholds();
       const engagement = this.sumEngagement(post.engagement);
-      const { mean, std } = await this.computePageBaseline(post.groupId, postId);
+      const { mean, std } = await this.computePageBaseline(
+        post.groupId,
+        postId,
+      );
       const decision = this.gate.evaluate({
         content: normalizedContent,
         matchedKeywords: nlpResult.matchedKeywords,
@@ -116,6 +125,7 @@ export class NlpProcessProcessor {
       nlp.topKeywordPriority = nlpResult.topKeywordPriority ?? null;
       nlp.hasSlang = slang.hasSlang;
       nlp.detectedSlang = slang.detectedSlang;
+      nlp.entities = nerEntities ?? null;
       nlp.isNotable = decision.isNotable;
       nlp.notabilityReasons = decision.notabilityReasons;
       nlp.signalFeatures = decision.signalFeatures;
@@ -133,7 +143,13 @@ export class NlpProcessProcessor {
       // 7. Alert nếu notable (dời từ ingest sang đây — alert phụ thuộc kết quả NLP async)
       if (decision.isNotable) {
         const title = (post.content ?? '').slice(0, 80);
-        await this.alert.createAlertFromGate(postId, title, decision, nlpResult, slang);
+        await this.alert.createAlertFromGate(
+          postId,
+          title,
+          decision,
+          nlpResult,
+          slang,
+        );
       }
     } catch (e) {
       // 1 bài lỗi không được làm chết worker/các job khác. Đánh dấu failed, không rethrow.
@@ -147,7 +163,9 @@ export class NlpProcessProcessor {
 
   /** Đọc ngưỡng Gate từ config active; thiếu field nào lấy default. */
   private async loadThresholds(): Promise<GateThresholds> {
-    const cfg = await this.gateConfigRepo.findOne({ where: { isActive: true } });
+    const cfg = await this.gateConfigRepo.findOne({
+      where: { isActive: true },
+    });
     const t = cfg?.thresholds ?? {};
     return {
       zScoreCutoff: t.zScoreCutoff ?? DEFAULT_THRESHOLDS.zScoreCutoff,
@@ -161,7 +179,13 @@ export class NlpProcessProcessor {
   private sumEngagement(e: OsintPost['engagement'] | null | undefined): number {
     if (!e) return 0;
     let sum = 0;
-    for (const key of ['likes', 'shares', 'reposts', 'commentCount', 'viewCount']) {
+    for (const key of [
+      'likes',
+      'shares',
+      'reposts',
+      'commentCount',
+      'viewCount',
+    ]) {
       const v = e[key];
       if (typeof v === 'number') sum += v;
     }

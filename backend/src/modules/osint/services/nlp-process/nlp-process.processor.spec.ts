@@ -14,18 +14,26 @@ describe('NlpProcessProcessor', () => {
   const nlpFindOne = jest.fn<() => Promise<any>>();
   const nlpSave = jest.fn((x: any) => Promise.resolve(x));
   const nlpCreate = jest.fn((x: any) => ({ ...x }));
-  const platformFindOne = jest.fn<() => Promise<any>>().mockResolvedValue({ trustLevel: 2 });
+  const platformFindOne = jest
+    .fn<() => Promise<any>>()
+    .mockResolvedValue({ trustLevel: 2 });
   const gateCfgFindOne = jest.fn<() => Promise<any>>().mockResolvedValue(null); // dùng default thresholds
 
   const analyzeArticle = jest.fn<() => Promise<any>>();
   const detectSlang = jest
     .fn<() => Promise<any>>()
     .mockResolvedValue({ hasSlang: false, detectedSlang: [] });
-  const createAlertFromGate = jest.fn<() => Promise<any>>().mockResolvedValue({});
+  const createAlertFromGate = jest
+    .fn<() => Promise<any>>()
+    .mockResolvedValue({});
 
+  const analyze = jest
+    .fn<() => Promise<any>>()
+    .mockResolvedValue([{ text: 'Nha Trang', type: 'LOC' }]);
   const post = {
     id: 'p1',
-    content: 'bắt quả tang một vụ mua bán ma túy lớn tại phường trung tâm hôm nay',
+    content:
+      'bắt quả tang một vụ mua bán ma túy lớn tại phường trung tâm hôm nay',
     platformId: 'pl1',
     groupId: 'g1',
     engagement: { likes: 5 },
@@ -55,6 +63,7 @@ describe('NlpProcessProcessor', () => {
       new TrustService({ find: postFind } as any),
       new GateService(),
       { createAlertFromGate } as any,
+      { analyze } as any,
     );
   });
 
@@ -103,5 +112,18 @@ describe('NlpProcessProcessor', () => {
     expect(savedPost.isRelevant).toBe(true);
     expect(savedPost.independentClusterId).toBeTruthy();
     expect(savedPost.contentHash).toBeTruthy();
+  });
+  it('điền entities từ NER bridge vào osint_post_nlp', async () => {
+    await run();
+    const saved = nlpSave.mock.calls.at(-1)![0] as any;
+    expect(saved.entities).toEqual([{ text: 'Nha Trang', type: 'LOC' }]);
+  });
+
+  it('NER trả null -> entities null nhưng vẫn done, không throw', async () => {
+    analyze.mockResolvedValue(null);
+    await run();
+    const saved = nlpSave.mock.calls.at(-1)![0] as any;
+    expect(saved.entities).toBeNull();
+    expect(saved.processingStatus).toBe('done');
   });
 });
