@@ -120,9 +120,10 @@ Shape phẳng `{text, type}` để Zone B dễ duyệt + khớp hồ sơ. Không
 
 ## 9. Mô hình cộng tác
 
-- **Service Python + bridge NestJS** = scaffold/boilerplate lặp pattern → Claude code luôn.
-- **Sửa worker** (nối bridge vào processor) = logic nghiệp vụ lõi → Claude **hướng dẫn,
-  user code, Claude review** (mặc định CLAUDE.md).
+**Toàn bộ S5b** theo mặc định CLAUDE.md: Claude **hướng dẫn từng bước → user tự code →
+Claude review**. Áp dụng cho cả service Python (`main.py`, gộp token NER, filter MISC),
+bridge NestJS, lẫn phần sửa worker. Không dán code hoàn chỉnh để copy-paste; mục tiêu
+user nắm từng dòng.
 
 ## 10. Tồn đọng / phase sau
 

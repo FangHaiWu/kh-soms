@@ -25,12 +25,18 @@ async function main() {
   });
 
   const nlpQueue = app.get<Queue>(getQueueToken('osint-nlp'));
-  const postRepo = app.get<Repository<OsintPost>>(getRepositoryToken(OsintPost));
-  const nlpRepo = app.get<Repository<OsintPostNlp>>(getRepositoryToken(OsintPostNlp));
+  const postRepo = app.get<Repository<OsintPost>>(
+    getRepositoryToken(OsintPost),
+  );
+  const nlpRepo = app.get<Repository<OsintPostNlp>>(
+    getRepositoryToken(OsintPostNlp),
+  );
   const platformRepo = app.get<Repository<OsintPlatform>>(
     getRepositoryToken(OsintPlatform),
   );
-  const alertRepo = app.get<Repository<OsintAlert>>(getRepositoryToken(OsintAlert));
+  const alertRepo = app.get<Repository<OsintAlert>>(
+    getRepositoryToken(OsintAlert),
+  );
 
   const platform =
     (await platformRepo.findOne({ where: { name: 'web_news' } })) ??
@@ -42,7 +48,10 @@ async function main() {
   }
 
   // 1. Nạp post + hàng nlp pending (giống ingest thật làm)
-  await postRepo.delete({ platformId: platform.id, externalPostId: 's5a-queue-test' });
+  await postRepo.delete({
+    platformId: platform.id,
+    externalPostId: 's5a-queue-test',
+  });
   const post = await postRepo.save(
     postRepo.create({
       platformId: platform.id,
@@ -52,7 +61,9 @@ async function main() {
       engagement: { likes: 2 },
     }),
   );
-  await nlpRepo.save(nlpRepo.create({ postId: post.id, processingStatus: 'pending' }));
+  await nlpRepo.save(
+    nlpRepo.create({ postId: post.id, processingStatus: 'pending' }),
+  );
 
   // 2. ĐẨY JOB VÀO QUEUE THẬT (không gọi handle trực tiếp) → BullMQ + Redis lo phần còn lại
   const job = await nlpQueue.add('process-post', { postId: post.id });
@@ -64,7 +75,10 @@ async function main() {
   for (let i = 0; i < 40; i++) {
     await sleep(500);
     nlp = await nlpRepo.findOne({ where: { postId: post.id } });
-    if (nlp && (nlp.processingStatus === 'done' || nlp.processingStatus === 'failed')) {
+    if (
+      nlp &&
+      (nlp.processingStatus === 'done' || nlp.processingStatus === 'failed')
+    ) {
       console.log(`   → Worker xong sau ~${((i + 1) * 500) / 1000}s`);
       break;
     }
@@ -90,7 +104,10 @@ async function main() {
     .delete()
     .where('source_ref_ids @> ARRAY[:id]::uuid[]', { id: post.id })
     .execute();
-  await postRepo.delete({ platformId: platform.id, externalPostId: 's5a-queue-test' });
+  await postRepo.delete({
+    platformId: platform.id,
+    externalPostId: 's5a-queue-test',
+  });
   console.log('Đã dọn sạch.\n');
 
   await app.close();
