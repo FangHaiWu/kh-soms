@@ -37,6 +37,7 @@ import { FacebookAccountManager } from '@modules/osint/services/facebook/faceboo
 import { FacebookCollector } from '@modules/osint/services/facebook/facebook.collector';
 import { FacebookCrawlProcessor } from './services/crawler/facebook-crawl.processor';
 import { OsintGateConfig } from './entities/osint-gate-config.entity';
+import { EwmWeightJob } from '@modules/osint/services/gate/ewm-weight.job/ewm-weight.job';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -78,6 +79,7 @@ import { OsintGateConfig } from './entities/osint-gate-config.entity';
     NewsCrawlProcessor,
     FacebookAccountManager,
     FacebookCollector,
+    EwmWeightJob,
   ],
   controllers: [OsintController, PlatformController, GroupsController],
   exports: [TypeOrmModule],
