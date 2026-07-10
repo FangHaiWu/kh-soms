@@ -51,23 +51,40 @@ describe('GateService', () => {
     expect(d.notabilityReasons).toContain('hot_keyword');
   });
 
-  // Lớp C.2 — engagement bất thường (z-score)
-  it('engagement vọt so baseline page → abnormal_engagement', () => {
+  // Engagement CÒ chỉ khi kèm keyword liên quan (viral + nội dung ANTT)
+  it('engagement vọt + có keyword → abnormal_engagement (cò)', () => {
+    const d = svc.evaluate({
+      ...base,
+      content: 'clip nóng vụ ma túy đang lan truyền chóng mặt trên mạng',
+      matchedKeywords: ['ma túy'],
+      topKeywordPriority: 1,
+      engagement: 100,
+      pageMean: 10,
+      pageStd: 5, // z = 18 > 2
+    });
+    expect(d.notabilityReasons).toContain('abnormal_engagement');
+    expect(d.isNotable).toBe(true);
+  });
+
+  // Bài học dữ liệu thật: viral ĐƠN THUẦN (không keyword) KHÔNG notable — né clip hài/quảng cáo
+  it('engagement vọt nhưng KHÔNG keyword → KHÔNG notable', () => {
     const d = svc.evaluate({
       ...base,
       engagement: 100,
       pageMean: 10,
-      pageStd: 5,
+      pageStd: 5, // z=18 nhưng không có nội dung liên quan
     });
-    // z = (100-10)/5 = 18 > 2
-    expect(d.notabilityReasons).toContain('abnormal_engagement');
-    expect(d.isNotable).toBe(true);
+    expect(d.isNotable).toBe(false);
+    expect(d.notabilityReasons).not.toContain('abnormal_engagement');
   });
 
   // z-score KHÔNG false positive khi page mới (std=0)
   it('std=0 (page mới) → không bật abnormal_engagement', () => {
     const d = svc.evaluate({
       ...base,
+      content: 'vụ ma túy nghiêm trọng',
+      matchedKeywords: ['ma túy'],
+      topKeywordPriority: 1,
       engagement: 100,
       pageMean: 0,
       pageStd: 0,
@@ -75,9 +92,24 @@ describe('GateService', () => {
     expect(d.notabilityReasons).not.toContain('abnormal_engagement');
   });
 
-  // Lớp C.3 — nguồn trust cao
-  it('sourceTrust cao → high_source_trust', () => {
+  // ĐIỀU BIẾN: trust cao ĐƠN THUẦN KHÔNG tự bật notable (mọi bài báo trust=5 sẽ không còn auto-notable)
+  it('sourceTrust cao đơn thuần → KHÔNG notable', () => {
     const d = svc.evaluate({ ...base, sourceTrust: 5 });
+    expect(d.isNotable).toBe(false);
+    expect(d.notabilityReasons).not.toContain('high_source_trust');
+  });
+
+  // Trust cao chỉ LÀM GIÀU khi đã có cò nội dung
+  it('trust cao + hot_keyword → high_source_trust xuất hiện như điều biến', () => {
+    const d = svc.evaluate({
+      ...base,
+      content: 'bắt quả tang vụ ma túy lớn',
+      matchedKeywords: ['ma túy'],
+      topKeywordPriority: 1,
+      sourceTrust: 5,
+    });
+    expect(d.isNotable).toBe(true);
+    expect(d.notabilityReasons).toContain('hot_keyword');
     expect(d.notabilityReasons).toContain('high_source_trust');
   });
 

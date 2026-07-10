@@ -73,43 +73,51 @@ export class GateService {
         signalFeatures: features,
       };
     }
-    const reasons: string[] = [];
-    // --- Tín hiệu 1: keyword nóng (Lớp B negation lồng vào đây) ---
+    // Ghi TẤT CẢ feature trước (kể cả khi không notable) — mẫu cho pha 2 Logistic.
     features.hotPriority = input.topKeywordPriority ?? 0;
+    const z = this.zScore(input.engagement, input.pageMean, input.pageStd);
+    features.zEngagement = z;
+    features.sourceTrust = input.sourceTrust;
+    features.corrobK = input.corrobK;
+    if (input.sentimentScore != null) features.sentiment = input.sentimentScore;
+
+    // ── CÒ NOTABILITY (tự bật) — chỉ tín hiệu NỘI DUNG mới được tự quyết định ──
+    // Bài học từ dữ liệu thật: trust cao / viral đơn thuần KHÔNG phải "đáng chú ý"
+    // (mọi bài báo trust=5 hoặc clip giật gân đều lọt). Trust/engagement là ĐIỀU BIẾN.
     const hotByPriority =
       input.topKeywordPriority !== null &&
       input.topKeywordPriority <= t.hotPriorityMax;
-    // Chỉ tính nóng nếu có ít nhất 1 keyword khớp mà không nằm trong ngữ cảnh negation
+    // Chỉ tính "khớp thật" nếu có keyword không nằm trong ngữ cảnh negation
     const hasRealHit = input.matchedKeywords.some(
       (kw) => !this.hasNegationContext(input.content, kw),
     );
-    if (hotByPriority && hasRealHit) {
-      reasons.push('hot_keyword');
-    }
+    const abnormal = z > t.zScoreCutoff;
 
-    // --- Tín hiệu 2: engagement bất thường ---
-    const z = this.zScore(input.engagement, input.pageMean, input.pageStd);
-    features.zEngagement = z;
-    if (z > t.zScoreCutoff) {
-      reasons.push('abnormal_engagement');
-    }
-    // --- Tín hiệu 3: nguồn trust cao ---
-    features.sourceTrust = input.sourceTrust;
-    if (input.sourceTrust >= (t.highTrustMin ?? 4))
-      reasons.push('high_source_trust');
+    const triggers: string[] = [];
+    // 1. keyword nóng (sau negation)
+    if (hotByPriority && hasRealHit) triggers.push('hot_keyword');
+    // 2. corroboration nhiều cụm độc lập
+    if (input.corrobK >= t.minCorrobK) triggers.push('corroboration');
+    // 3. engagement bất thường CHỈ khi kèm nội dung liên quan (viral + dính keyword) —
+    //    né viral rác (clip hài, quảng cáo) vốn không có keyword ANTT.
+    if (abnormal && hasRealHit) triggers.push('abnormal_engagement');
 
-    // --- Tín hiệu 4: corroboration ---
-    features.corrobK = input.corrobK;
-    if (input.corrobK >= t.minCorrobK) reasons.push('corroboration');
+    const isNotable = triggers.length > 0;
+    const reasons: string[] = [...triggers];
 
-    // --- Tín hiệu 5: sentiment (S5b — chỉ chạy khi có điểm) ---
-    if (input.sentimentScore != null) {
-      features.sentiment = input.sentimentScore;
-      // (ngưỡng negativeSentimentMax để pha S5b; giờ chưa bật)
+    // ── ĐIỀU BIẾN — chỉ ghi khi ĐÃ notable (làm giàu severity/xếp hạng, KHÔNG tự bật) ──
+    if (isNotable) {
+      if (input.sourceTrust >= (t.highTrustMin ?? 4)) {
+        reasons.push('high_source_trust');
+      }
+      // engagement bất thường nhưng không đủ điều kiện làm cò → vẫn ghi làm ngữ cảnh
+      if (abnormal && !reasons.includes('abnormal_engagement')) {
+        reasons.push('abnormal_engagement');
+      }
     }
 
     return {
-      isNotable: reasons.length > 0,
+      isNotable,
       notabilityReasons: reasons,
       signalFeatures: features,
     };
