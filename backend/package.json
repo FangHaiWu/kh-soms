@@ -16,6 +16,7 @@
     "test": "jest",
     "test:pipeline": "ts-node -r tsconfig-paths/register src/scripts/test-pipeline.ts",
     "test:s5a": "ts-node -r tsconfig-paths/register src/scripts/test-s5a-pipeline.ts",
+    "test:s5a-queue": "ts-node -r tsconfig-paths/register src/scripts/test-s5a-queue.ts",
     "demo:sprint3": "ts-node -r tsconfig-paths/register src/scripts/demo-sprint3.ts",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
