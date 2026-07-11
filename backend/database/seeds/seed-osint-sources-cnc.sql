@@ -14,13 +14,25 @@
 
 INSERT INTO osint.osint_sources (name, url, type, rss_feed_url, is_active, crawl_interval_minutes, trust_level) VALUES
 -- Cơ quan nhà nước chuyên trách ATTT/an ninh mạng
-('NCSC — Không gian mạng',        'https://khonggianmang.vn',  'gov',       NULL, false, 30, 5),
-('NCSC — Tín nhiệm mạng',         'https://tinnhiemmang.vn',   'gov',       NULL, false, 30, 5),
-('Trung tâm NCSC',                'https://ncsc.gov.vn',       'gov',       NULL, false, 30, 5),
+
+('NCSC — Tín nhiệm mạng',         'https://tinnhiemmang.vn',   'gov',       NULL, false, 30, 5), 
 ('Tạp chí An toàn thông tin',     'https://antoanthongtin.vn', 'magazine',  NULL, false, 30, 5),
 -- Cộng đồng / diễn đàn an ninh mạng uy tín (nguồn cảnh báo scam, blacklist domain)
 ('Chống Lừa Đảo',                 'https://chongluadao.vn',    'community', NULL, false, 30, 4),
-('WhiteHat — Diễn đàn ANM',       'https://whitehat.vn',       'security',  NULL, false, 30, 4)
+('WhiteHat — Diễn đàn ANM',       'https://whitehat.vn',       'security',  NULL, false, 30, 4),
+-- Cơ quan nhà nước chuyên trách ATTT/ứng cứu sự cố (bổ sung)
+('VNCERT/CC',                     'https://vncert.gov.vn',            'gov',       NULL, false, 30, 5),
+('Cục An toàn thông tin (AIS)',   'https://ais.gov.vn',               'gov',       NULL, false, 30, 5),
+-- Doanh nghiệp an ninh mạng VN (blog threat-intel, cảnh báo mã độc/lừa đảo)
+('CyStack',                       'https://cystack.net',              'security',  NULL, false, 60, 4),
+('VSEC',                          'https://vsec.com.vn',              'security',  NULL, false, 60, 4),
+('Viettel Cyber Security',        'https://viettelcybersecurity.com', 'security',  NULL, false, 60, 4),
+('Bkav',                          'https://bkav.com.vn',              'security',  NULL, false, 60, 4),
+-- Nguồn quốc tế uy tín (tin mã độc/ransomware/lừa đảo — có RSS chuẩn, cán bộ verify để bật)
+('The Hacker News',               'https://thehackernews.com',        'security',  NULL, false, 60, 4),
+('BleepingComputer',              'https://www.bleepingcomputer.com', 'security',  NULL, false, 60, 4),
+('Krebs on Security',             'https://krebsonsecurity.com',      'security',  NULL, false, 60, 4),
+('ScamAdviser',                   'https://www.scamadviser.com',      'community', NULL, false, 60, 4)
 ON CONFLICT (name) DO UPDATE SET
   url                    = EXCLUDED.url,
   type                   = EXCLUDED.type,
