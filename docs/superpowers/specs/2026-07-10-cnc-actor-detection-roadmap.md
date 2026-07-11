@@ -43,6 +43,19 @@ Bám pipeline S5a/S5b sẵn có.
 - **Lưu:** bảng mới `osint_actor` + `osint_actor_stat`.
 - **Ra:** danh sách actor **xếp hạng "thường xuyên"** theo category/đơn vị.
 
+**Source discovery (khám phá nguồn) — thuộc L2:**
+Danh sách nguồn tĩnh lỗi thời nhanh (tội phạm đổi kênh liên tục) → hệ thống phải TỰ đề xuất nguồn.
+Cùng hạ tầng actor-aggregation, thêm 2 bước:
+- **Seed-driven search:** dùng keyword CNC (`seed-osint-keywords-cnc.sql`) tìm trên FB/TG/Reddit/web
+  → thu group/page/kênh/domain có nội dung khớp → ứng viên nguồn.
+- **Snowball từ nguồn loại A:** cào cộng đồng cảnh báo lừa đảo (NCSC, chongluadao, whitehat...
+  `seed-osint-sources-cnc.sql`) → bóc **chỉ dấu (#3)** + link/handle họ tố cáo → ứng viên nguồn loại B.
+- Actor nào **thường xuyên** đăng bài khớp category tự nổi lên top → **đề xuất thành nguồn giám sát**.
+- **Con người DUYỆT** trước khi đưa vào giám sát thường trực (CLAUDE.md: AI chỉ hỗ trợ). Chỉ không
+  gian công khai (Điều 289); KHÔNG group kín/tin nhắn riêng.
+- Nguồn loại A (cơ quan/cộng đồng đưa tin) seed sẵn; loại B (nơi tội phạm hoạt động) KHÔNG seed tĩnh
+  — chỉ ra từ discovery + duyệt người.
+
 ### Lớp 3 — Phân loại ngữ nghĩa (LLM = S5c)  *(cho loại (c) + tăng chính xác)*
 - Keyword không đủ bắt kích động/xuyên tạc → **LLM** phán category ngữ nghĩa + tóm tắt +
   re-trích entity sạch, **chỉ trên bài qua Gate** (~5-10%). Tiêu thụ cờ `gate_passed`.
