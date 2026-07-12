@@ -49,6 +49,7 @@ describe('NlpProcessProcessor', () => {
     analyzeArticle.mockResolvedValue({
       isRelevant: true,
       matchedKeywords: ['ma túy'],
+      categories: ['lua-dao'],
       topKeywordPriority: 1,
     });
 
@@ -77,6 +78,7 @@ describe('NlpProcessProcessor', () => {
     expect(saved.notabilityReasons).toContain('hot_keyword');
     expect(saved.gatePassed).toBe(true);
     expect(saved.signalFeatures).toHaveProperty('zEngagement');
+    expect(saved.matchedCategories).toEqual(['lua-dao']); // #1 category dẫn vào osint_post_nlp
     expect(createAlertFromGate).toHaveBeenCalledTimes(1);
   });
 

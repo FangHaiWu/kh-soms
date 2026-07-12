@@ -96,4 +96,33 @@ describe('NlpService', () => {
 
     expect(findMock).toHaveBeenCalledTimes(1);
   });
+
+  // 5) #1 CNC — trả categories distinct + dedup matchedKeywords (sửa lỗi trùng "lừa đảo")
+  it('trả categories distinct của keyword khớp và dedup matchedKeywords', async () => {
+    // 'lừa đảo' tồn tại ở 2 category (Tội phạm + lua-dao) → khớp cả hai
+    findMock.mockResolvedValue([
+      { keyword: 'lừa đảo', priority: 1, isActive: true, category: 'lua-dao' },
+      { keyword: 'lừa đảo', priority: 1, isActive: true, category: 'Tội phạm' },
+      { keyword: 'công an', priority: 3, isActive: true, category: 'annt' },
+    ] as any);
+
+    const r = await service.analyzeArticle('vụ lừa đảo', 'công an điều tra');
+
+    // matchedKeywords dedup: 'lừa đảo' chỉ xuất hiện 1 lần (trước đây bị trùng)
+    expect(r.matchedKeywords.filter((k) => k === 'lừa đảo')).toHaveLength(1);
+    expect(r.matchedKeywords).toEqual(
+      expect.arrayContaining(['lừa đảo', 'công an']),
+    );
+    // categories distinct của các keyword khớp
+    expect(r.categories).toEqual(
+      expect.arrayContaining(['lua-dao', 'Tội phạm', 'annt']),
+    );
+    expect(r.categories).toHaveLength(3);
+  });
+
+  // 6) #1 — bài không khớp → categories rỗng
+  it('bài không khớp → categories = []', async () => {
+    const r = await service.analyzeArticle('thực phẩm cho thận', '');
+    expect(r.categories).toEqual([]);
+  });
 });

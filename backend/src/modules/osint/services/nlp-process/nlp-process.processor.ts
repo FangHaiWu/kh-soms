@@ -122,6 +122,8 @@ export class NlpProcessProcessor {
       // 6. Ghi osint_post_nlp (nguồn sự thật NLP)
       nlp.isRelevant = nlpResult.isRelevant;
       nlp.matchedKeywords = nlpResult.matchedKeywords;
+      // #1 CNC: gắn nhãn (các) category nhóm CNC bài thuộc về (route đơn vị + phân tích)
+      nlp.matchedCategories = nlpResult.categories;
       nlp.topKeywordPriority = nlpResult.topKeywordPriority ?? null;
       nlp.hasSlang = slang.hasSlang;
       nlp.detectedSlang = slang.detectedSlang;

@@ -66,6 +66,19 @@ export class OsintPostNlp {
   @Column('jsonb', { name: 'entities', nullable: true })
   entities: any;
 
+  // #1 CNC: category distinct của keyword khớp (nhãn nhóm bài — route đơn vị đa-đơn-vị)
+  @Column('varchar', {
+    length: 100,
+    array: true,
+    name: 'matched_categories',
+    nullable: true,
+  })
+  matchedCategories: string[];
+
+  // #3 CNC: chỉ dấu {type, raw, normalized} do IndicatorExtractorService điền (nối sau)
+  @Column('jsonb', { name: 'indicators', nullable: true })
+  indicators: any;
+
   @Column('boolean', { name: 'is_notable', default: false })
   isNotable: boolean;
 

@@ -5,7 +5,8 @@ import { OsintKeyword } from '../../entities/osint-keyword.entity';
 
 export interface NlpResult {
   isRelevant: boolean; // Co lien quan ANTT hay khong (gating)
-  matchedKeywords: string[]; // keywords tim thay trong bai
+  matchedKeywords: string[]; // keywords tim thay trong bai (đã dedup theo chuỗi)
+  categories: string[]; // #1 CNC: category distinct của các keyword khớp -> route đơn vị + gắn nhãn bài
   topKeywordPriority: number | null; // Keyword co priority cao nhat (so nho = nong) -> alertService se dung de xac dinh do uu tien canh bao
 }
 @Injectable()
@@ -51,7 +52,14 @@ export class NlpService {
       );
       // Tra ve ket qua
       const isRelevant: boolean = matched.length > 0;
-      const matchedKeywords: string[] = matched.map((kw) => kw.keyword);
+      // Dedup theo chuỗi: cùng 1 keyword khớp ở nhiều category chỉ liệt kê 1 lần (sửa lỗi trùng)
+      const matchedKeywords: string[] = [
+        ...new Set(matched.map((kw) => kw.keyword)),
+      ];
+      // #1 CNC: category distinct của các keyword khớp (một bài có thể thuộc nhiều nhóm)
+      const categories: string[] = [
+        ...new Set(matched.map((kw) => kw.category)),
+      ];
       // Neu matched.length > 0 thi lay so nho nhat trong mang matched.map(kw => kw.priority)
       const topKeywordPriority: number | null =
         matched.length > 0
@@ -61,6 +69,7 @@ export class NlpService {
       return {
         isRelevant: isRelevant,
         matchedKeywords: matchedKeywords,
+        categories: categories,
         topKeywordPriority: topKeywordPriority,
       };
     } catch (error) {
@@ -68,6 +77,7 @@ export class NlpService {
       return {
         isRelevant: false,
         matchedKeywords: [],
+        categories: [],
         topKeywordPriority: null,
       };
     }

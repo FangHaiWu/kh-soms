@@ -29,6 +29,7 @@ describe('AlertService', () => {
   const nlp = (over: Partial<NlpResult> = {}): NlpResult => ({
     isRelevant: false,
     matchedKeywords: [],
+    categories: [],
     topKeywordPriority: null,
     ...over,
   });
