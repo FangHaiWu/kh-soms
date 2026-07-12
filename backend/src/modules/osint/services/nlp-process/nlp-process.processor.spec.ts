@@ -3,6 +3,7 @@ import { NlpProcessProcessor } from './nlp-process.processor';
 import { NormalizeService } from '../normalize/normalize.service';
 import { TrustService } from '../trust/trust.service';
 import { GateService } from '../gate/gate.service';
+import { IndicatorExtractorService } from '../indicator/indicator-extractor.service';
 
 // Dùng service THẬT cho Normalize/Trust/Gate (thuần logic), mock repo + nlp/slang/alert.
 describe('NlpProcessProcessor', () => {
@@ -65,6 +66,7 @@ describe('NlpProcessProcessor', () => {
       new GateService(),
       { createAlertFromGate } as any,
       { analyze } as any,
+      new IndicatorExtractorService(), // service thật (thuần logic)
     );
   });
 
@@ -127,5 +129,24 @@ describe('NlpProcessProcessor', () => {
     const saved = nlpSave.mock.calls.at(-1)![0] as any;
     expect(saved.entities).toBeNull();
     expect(saved.processingStatus).toBe('done');
+  });
+
+  it('#3 điền indicators (SĐT) từ nội dung bài vào osint_post_nlp', async () => {
+    // Bài có số điện thoại → IndicatorExtractorService thật bóc ra PHONE
+    postFindOne.mockResolvedValue({
+      ...post,
+      content: 'Sàn đầu tư uy tín, liên hệ 0912.345.678 để nạp tiền',
+    });
+    await run();
+    const saved = nlpSave.mock.calls.at(-1)![0] as any;
+    expect(saved.indicators).toEqual([
+      { type: 'PHONE', raw: '0912.345.678', normalized: '0912345678' },
+    ]);
+  });
+
+  it('#3 bài không có chỉ dấu → indicators null', async () => {
+    await run(); // post mặc định không có SĐT/URL/…
+    const saved = nlpSave.mock.calls.at(-1)![0] as any;
+    expect(saved.indicators).toBeNull();
   });
 });

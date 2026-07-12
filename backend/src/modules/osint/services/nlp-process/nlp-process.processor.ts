@@ -14,6 +14,7 @@ import { TrustService } from '../trust/trust.service';
 import { GateService, GateThresholds } from '../gate/gate.service';
 import { AlertService } from '../alert/alert.service';
 import { NlpAnalyzerBridgeService } from '@modules/osint/services/nlp-analyzer/nlp-analyzer-bridge.service';
+import { IndicatorExtractorService } from '../indicator/indicator-extractor.service';
 // Ngưỡng mặc định khi chưa có hàng osint_gate_config active (worker vẫn chạy được).
 const DEFAULT_THRESHOLDS: GateThresholds = {
   zScoreCutoff: 2,
@@ -51,6 +52,7 @@ export class NlpProcessProcessor {
     private gate: GateService,
     private alert: AlertService,
     private nerBridge: NlpAnalyzerBridgeService,
+    private indicatorExtractor: IndicatorExtractorService,
   ) {}
 
   @Process('process-post')
@@ -84,6 +86,9 @@ export class NlpProcessProcessor {
       );
       const slang = await this.slangService.detectSlang('', normalizedContent);
       const nerEntities = await this.nerBridge.analyze(normalizedContent);
+
+      // #3 CNC: bóc chỉ dấu (SĐT/STK/ví/URL/handle) bằng regex — không đụng Gate, nuôi vân-tay-actor L2
+      const indicators = this.indicatorExtractor.extract(normalizedContent);
       // 4. Trust: platform prior → source trust; gom cụm corroboration theo content_hash → credibility
       const platform = await this.platformRepo.findOne({
         where: { id: post.platformId },
@@ -128,6 +133,7 @@ export class NlpProcessProcessor {
       nlp.hasSlang = slang.hasSlang;
       nlp.detectedSlang = slang.detectedSlang;
       nlp.entities = nerEntities ?? null;
+      nlp.indicators = indicators.length > 0 ? indicators : null;
       nlp.isNotable = decision.isNotable;
       nlp.notabilityReasons = decision.notabilityReasons;
       nlp.signalFeatures = decision.signalFeatures;
