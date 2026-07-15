@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Param,
+  Query,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -52,6 +53,20 @@ export class OsintController {
   @Get('keywords')
   getKeywords() {
     return this.osintService.getKeywords();
+  }
+
+  // Lớp 2 CNC: xếp hạng actor (tài khoản/kênh) theo số bài CNC — phát hiện tái phạm
+  @Get('actors')
+  getActors(
+    @Query('type') type?: string,
+    @Query('repeat') repeat?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.osintService.getActors({
+      type,
+      repeat: repeat === 'true',
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 
   /**

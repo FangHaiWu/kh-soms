@@ -5,6 +5,7 @@ import { OsintArticle } from './entities/osint-article.entity';
 import { OsintSource } from './entities/osint-source.entity';
 import { OsintAlert } from './entities/osint-alert.entity';
 import { OsintKeyword } from './entities/osint-keyword.entity';
+import { OsintActorStat } from './entities/osint-actor-stat.entity';
 
 describe('OsintService', () => {
   let service: OsintService;
@@ -17,6 +18,7 @@ describe('OsintService', () => {
         { provide: getRepositoryToken(OsintSource), useValue: {} },
         { provide: getRepositoryToken(OsintAlert), useValue: {} },
         { provide: getRepositoryToken(OsintKeyword), useValue: {} },
+        { provide: getRepositoryToken(OsintActorStat), useValue: {} },
       ],
     }).compile();
 
