@@ -46,6 +46,7 @@ import { GateService } from './services/gate/gate.service';
 import { NlpProcessProcessor } from './services/nlp-process/nlp-process.processor';
 import { OsintActor } from './entities/osint-actor.entity';
 import { OsintActorStat } from './entities/osint-actor-stat.entity';
+import { ActorAggregateJob } from './services/actor/actor-aggregate.job';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -97,6 +98,7 @@ import { OsintActorStat } from './entities/osint-actor-stat.entity';
     TrustService,
     GateService,
     NlpProcessProcessor,
+    ActorAggregateJob,
   ],
   controllers: [OsintController, PlatformController, GroupsController],
   exports: [TypeOrmModule],
