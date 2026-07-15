@@ -44,6 +44,8 @@ import { NormalizeService } from './services/normalize/normalize.service';
 import { TrustService } from './services/trust/trust.service';
 import { GateService } from './services/gate/gate.service';
 import { NlpProcessProcessor } from './services/nlp-process/nlp-process.processor';
+import { OsintActor } from './entities/osint-actor.entity';
+import { OsintActorStat } from './entities/osint-actor-stat.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -60,6 +62,8 @@ import { NlpProcessProcessor } from './services/nlp-process/nlp-process.processo
       OsintPostNlp,
       OsintFacebookAccount,
       OsintGateConfig,
+      OsintActor,
+      OsintActorStat,
     ]),
     BullModule.registerQueue({ name: 'osint-crawl' }),
     BullModule.registerQueue({ name: 'osint-nlp' }), // queue phân tích NLP tách khỏi crawl
