@@ -4,6 +4,7 @@ import { chromium, Browser, BrowserContext } from 'playwright';
 import { FacebookAccountManager } from '@modules/osint/services/facebook/facebook-account-manager.service';
 import { OsintFacebookAccount } from '@modules/osint/entities/osint-facebook-account.entity';
 import { RawPost } from '../collectors/raw-post.interface';
+import { parseArticle } from './fb-article-parser';
 @Injectable()
 export class FacebookCollector {
   private readonly logger = new Logger(FacebookCollector.name);
@@ -211,6 +212,75 @@ export class FacebookCollector {
       return await this.login(context, loginId, password);
     } finally {
       await browser.close(); // kill browser mỗi lần (spec G)
+    }
+  }
+
+  /**
+   * Bóc inline từ feed group: cuộn + mở "Xem thêm" → lấy outerHTML từng article →
+   * parseArticle (cheerio, Node) → RawPost[]. Không vào từng permalink (nhanh + ít fail + OPSEC tốt).
+   * Bỏ article thiếu content/id. Dedup theo externalPostId qua các vòng cuộn.
+   */
+  private async scrapeGroupFeed(
+    context: BrowserContext,
+    entryUrl: string,
+  ): Promise<RawPost[]> {
+    const page = await context.newPage();
+    try {
+      await page.goto(entryUrl, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('div[role="article"]', { timeout: 15000 });
+
+      const byId = new Map<string, RawPost>();
+      const maxScrolls = Number(this.configService.get('FB_MAX_SCROLLS')) || 8;
+      let stale = 0;
+
+      for (let i = 0; i < maxScrolls; i++) {
+        const before = byId.size;
+
+        // 1. Mở hết "Xem thêm/See more" đang hiển thị (nội dung bị cắt)
+        const moreBtns = await page
+          .getByRole('button', { name: /^(Xem thêm|See more)$/i })
+          .all();
+        for (const b of moreBtns) {
+          await b.click().catch(() => undefined); // nút biến mất giữa chừng → bỏ qua
+        }
+
+        // 2. Lấy outerHTML từng article (browser chỉ serialize, KHÔNG parse)
+        const htmls: string[] = await page.evaluate(() =>
+          Array.from(document.querySelectorAll('div[role="article"]')).map(
+            (el) => (el as HTMLElement).outerHTML,
+          ),
+        );
+
+        // 3. Parse ở Node bằng cheerio → RawPost, dồn Map (dedup theo id)
+        for (const html of htmls) {
+          const p = parseArticle(html);
+          if (!p) continue;
+          byId.set(p.externalPostId, {
+            externalPostId: p.externalPostId,
+            authorName: p.authorName,
+            authorExternalId: this.extractExternalId(p.authorHref),
+            content: p.content,
+          });
+        }
+
+        // 4. Dừng sớm nếu 2 vòng liên tiếp không thêm bài mới → hết feed
+        if (byId.size === before) stale++;
+        else stale = 0;
+        if (stale >= 2) break;
+
+        // 5. Cuộn xuống đáy + chờ ngẫu nhiên (giống người, cho FB tải thêm)
+        await page.evaluate(() =>
+          window.scrollTo(0, document.body.scrollHeight),
+        );
+        await page.waitForTimeout(Math.floor(Math.random() * 2000) + 2000);
+      }
+
+      const cap = Number(this.configService.get('FB_MAX_POSTS_PER_RUN')) || 40;
+      const posts = [...byId.values()].slice(0, cap);
+      this.logger.log(`[${entryUrl}] feed-inline thu ${posts.length} post`);
+      return posts;
+    } finally {
+      await page.close();
     }
   }
 
@@ -615,30 +685,8 @@ export class FacebookCollector {
     // auth
     try {
       const context = await this.getAuthenticatedContext(browser, account);
-      const ids = await this.scrapeGroupPostIds(context, entryUrl);
-      const cap = Number(this.configService.get('FB_MAX_POSTS_PER_RUN')) || 6; // <= 5 - 8, không 10+
-      const posts: RawPost[] = [];
-      let consecutiveNulls = 0; // đếm null liên tiếp -> phát hiẹn bị throttle
-      for (const { externalPostId, postUrl } of ids.slice(0, cap)) {
-        const detail = await this.scrapePostDetail(context, {
-          externalPostId,
-          postUrl,
-        });
-        if (detail) {
-          posts.push(detail);
-          consecutiveNulls = 0; // cào được -> reset
-        } else {
-          consecutiveNulls++;
-          if (consecutiveNulls >= 2) {
-            this.logger.warn(
-              `[${account.label}] ${consecutiveNulls} permalink null liên tiếp — dừng group sớm`,
-            );
-            break;
-          }
-        }
-        // Delay ngau nhien >= 15s
-        await this.sleep(15_000 + Math.random() * 10_000);
-      }
+      // Feed-inline: bóc thẳng từ feed group (thay vòng vào-từng-permalink giòn).
+      const posts = await this.scrapeGroupFeed(context, entryUrl);
       return { ok: true, posts };
     } catch (e: unknown) {
       const error = e instanceof Error ? e.message : String(e);
