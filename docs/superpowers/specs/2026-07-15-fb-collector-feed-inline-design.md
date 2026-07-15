@@ -30,19 +30,23 @@ Tăng sản lượng FB/lần crawl (≫6) + điền `authorExternalId`/`authorN
 Thêm method `scrapeGroupFeed(context, entryUrl): Promise<RawPost[]>` — thay thế cặp
 `scrapeGroupPostIds` + vòng lặp `scrapePostByPermalink` trong `collect()`.
 
+**Quyết định test (đã chốt):** jest chạy `testEnvironment: node` (KHÔNG jsdom), repo có sẵn
+`cheerio`. → Browser chỉ **lấy `outerHTML` từng article** (sau khi bấm "Xem thêm"); toàn bộ
+**parse bằng cheerio trong Node** qua hàm thuần `parseArticle(html)` — unit-test trên chuỗi HTML,
+khớp cách `news-crawl.collector` đã dùng cheerio. KHÔNG parse trong `page.evaluate`.
+
 ```
 scrapeGroupFeed:
   mở group (goto) → chờ div[role="article"] → lặp cuộn tối đa FB_MAX_SCROLLS:
     • bấm hết nút "Xem thêm/See more" trong feed (mở nội dung bị cắt)
-    • page.evaluate: duyệt MỖI div[role="article"], gọi hàm thuần parseArticle(el) →
-        { externalPostId, content, authorName, authorHref, likeRaw, commentRaw, shareRaw }
-      NEO THEO article (mọi querySelector giới hạn trong el, KHÔNG toàn trang)
-    • dồn Map theo externalPostId (dedup, bản mới đè)
+    • page.evaluate: trả mảng article.outerHTML (mỗi div[role="article"] → 1 chuỗi HTML)
+    • dồn Map theo externalPostId (parse từng HTML để lấy id; bản mới đè — dedup)
     • 2 vòng cuộn không thêm bài → dừng; ngược lại scroll + delay ngẫu nhiên
-  → map → RawPost[]: authorExternalId = extractExternalId(authorHref),
-       engagement = parseEngagement(likeRaw/commentRaw/shareRaw), externalGroupId,
-       platformSpecificData nếu cần. Bỏ article thiếu externalPostId hoặc content.
-  → cap FB_MAX_POSTS_PER_RUN (mặc định 40) — ids.slice(0, cap).
+  → với mỗi HTML: parseArticle(html) → { externalPostId, content, authorName, authorHref,
+       likeRaw, commentRaw, shareRaw }; bỏ article thiếu externalPostId hoặc content.
+  → RawPost[]: authorExternalId = extractExternalId(authorHref),
+       engagement = parseEngagement(likeRaw/commentRaw/shareRaw), externalGroupId.
+  → cap FB_MAX_POSTS_PER_RUN (mặc định 40) — slice(0, cap).
 ```
 
 `collect()` (dòng ~618) đổi: `const posts = await this.scrapeGroupFeed(context, entryUrl);`
@@ -53,12 +57,9 @@ rồi ingest như cũ. `scrapePostByPermalink` + `scrapeGroupPostIds` **giữ l�
 
 1. **Neo theo article:** parse phải chạy trong phạm vi từng `article` element. Sai phạm vi →
    gán nhầm author/id của bài khác. Test phải phủ ca "2 article liền nhau, mỗi cái ra đúng record của mình".
-2. **Tách hàm thuần `parseArticle(root: Element)`** (trả object các field thô) để **unit test**
-   không cần FB thật: dựng HTML 1 article giả, gọi parseArticle, assert đúng field.
-   `page.evaluate` chỉ inject + gọi hàm này trên từng `div[role="article"]`.
-   *(Lưu ý kỹ thuật: hàm thuần dùng DOM API `querySelector`/`innerText` — test bằng jsdom
-   hoặc môi trường jest có DOM; nếu jsdom không có, parse bằng cheerio tương đương và
-   test trên chuỗi HTML. Chọn cách khả thi với jest hiện tại — kiểm trước khi code.)*
+2. **Hàm thuần `parseArticle(html: string)`** (cheerio, trả object field thô) để **unit test**
+   không cần FB thật: dựng HTML 1 article giả → assert đúng field. Browser chỉ trả `outerHTML`.
+   Neo phạm vi tự nhiên vì mỗi lần parse đúng 1 article HTML.
 3. **Nội dung cắt "Xem thêm":** bấm nút mở rộng trước khi bóc. Nếu vẫn cắt → chấp nhận
    content ngắn (đủ cho NLP keyword); không chặn.
 
@@ -83,9 +84,9 @@ rồi ingest như cũ. `scrapePostByPermalink` + `scrapeGroupPostIds` **giữ l�
 
 ## Test
 
-- **Unit (jest):** `parseArticle` — 1 article đủ field → đúng {id,content,author,href};
-  2 article liền → mỗi cái đúng record riêng (neo phạm vi); article thiếu message → null/skip;
-  href vanity vs số → `extractExternalId` đúng.
+- **Unit (jest, cheerio):** `parseArticle(html)` — 1 article đủ field → đúng {id,content,author,href};
+  article thiếu message → skip; content bị cắt "Xem thêm" → vẫn lấy phần có; href vanity vs số →
+  `extractExternalId` đúng. Không cần jsdom (parse HTML string bằng cheerio).
 - **Verify thật (thủ công):** chạy `scrapeGroupFeed` trên 1 group FB công khai qua tài khoản
   công cụ → số post ≫ 6, `author_external_id` được điền trong DB, không mở modal permalink.
 

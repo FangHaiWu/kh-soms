@@ -20,9 +20,6 @@ INSERT INTO osint.osint_sources (name, url, type, rss_feed_url, is_active, crawl
 -- Cộng đồng / diễn đàn an ninh mạng uy tín (nguồn cảnh báo scam, blacklist domain)
 ('Chống Lừa Đảo',                 'https://chongluadao.vn',    'community', NULL, false, 30, 4),
 ('WhiteHat — Diễn đàn ANM',       'https://whitehat.vn',       'security',  NULL, false, 30, 4),
--- Cơ quan nhà nước chuyên trách ATTT/ứng cứu sự cố (bổ sung)
-('VNCERT/CC',                     'https://vncert.gov.vn',            'gov',       NULL, false, 30, 5),
-('Cục An toàn thông tin (AIS)',   'https://ais.gov.vn',               'gov',       NULL, false, 30, 5),
 -- Doanh nghiệp an ninh mạng VN (blog threat-intel, cảnh báo mã độc/lừa đảo)
 ('CyStack',                       'https://cystack.net',              'security',  NULL, false, 60, 4),
 ('VSEC',                          'https://vsec.com.vn',              'security',  NULL, false, 60, 4),

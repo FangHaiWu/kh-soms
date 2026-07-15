@@ -17,7 +17,8 @@ export interface NerEntity {
 export class NlpAnalyzerBridgeService {
   private readonly logger = new Logger(NlpAnalyzerBridgeService.name);
   // Url service python — đọc từ env, có default cho dev (khác news-extractor: port 8001)
-  private readonly url = process.env.NLP_ANALYZER_URL ?? 'http://localhost:8001';
+  private readonly url =
+    process.env.NLP_ANALYZER_URL ?? 'http://localhost:8001';
 
   // Trả entities NER, hoặc null nếu lỗi (để worker gán entities = null và chạy tiếp)
   async analyze(text: string): Promise<NerEntity[] | null> {
