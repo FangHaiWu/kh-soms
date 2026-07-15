@@ -121,12 +121,15 @@ export class IndicatorExtractorService {
       /(?<![@\w.])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24})(?![\w.@])/gi;
     return text.replace(re, (m) => {
       const host = m.toLowerCase().replace(/^www\./, '');
-      const tld = host.split('.').pop() ?? '';
-      if (BARE_TLDS.has(tld)) {
+      const labels = host.split('.');
+      const tld = labels[labels.length - 1] ?? '';
+      const sld = labels[labels.length - 2] ?? ''; // nhãn ngay trước TLD
+      // Nhận khi: TLD trong whitelist VÀ SLD >= 2 ký tự (loại false-positive kiểu "n.biz")
+      if (BARE_TLDS.has(tld) && sld.length >= 2) {
         found.push({ type: 'URL', raw: m, normalized: host });
         return ' '.repeat(m.length);
       }
-      return m; // TLD lạ → giữ nguyên, không nhận
+      return m; // TLD lạ / SLD quá ngắn → giữ nguyên, không nhận
     });
   }
 

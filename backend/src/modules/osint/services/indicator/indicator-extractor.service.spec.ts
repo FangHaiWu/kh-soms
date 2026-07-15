@@ -55,6 +55,12 @@ describe('IndicatorExtractorService', () => {
     expect(norms('mail lienhe@gmail.com', 'URL')).toEqual([]);
   });
 
+  it('URL: loại domain trần có nhãn SLD 1 ký tự (false-positive n.biz)', () => {
+    // "n.biz" bắt nhầm từ văn bản — SLD 'n' 1 ký tự → bỏ; nhưng URL đầy đủ vẫn nhận
+    expect(norms('doanh nghiệp n.biz phát triển', 'URL')).toEqual([]);
+    expect(norms('web ab-xyz.com hợp lệ', 'URL')).toEqual(['ab-xyz.com']);
+  });
+
   // ---- HANDLE ----
   it('HANDLE: bắt @username và link t.me/zalo.me', () => {
     expect(svc.extract('kết bạn @scam_king_88').map((i) => i.type)).toContain(
