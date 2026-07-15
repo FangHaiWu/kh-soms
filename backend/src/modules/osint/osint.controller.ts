@@ -12,6 +12,7 @@ import { Repository } from 'typeorm';
 import { OsintService } from './osint.service';
 import { OsintPost } from './entities/osint-post.entity';
 import { OsintPostNlp } from './entities/osint-post-nlp.entity';
+import { OsintGroup } from './entities/osint-group.entity';
 
 @Controller('osint')
 export class OsintController {
@@ -21,8 +22,12 @@ export class OsintController {
     private readonly postRepo: Repository<OsintPost>,
     @InjectRepository(OsintPostNlp)
     private readonly postNlpRepo: Repository<OsintPostNlp>,
+    @InjectRepository(OsintGroup)
+    private readonly groupRepo: Repository<OsintGroup>,
     @InjectQueue('osint-nlp')
     private readonly nlpQueue: Queue,
+    @InjectQueue('osint-crawl')
+    private readonly crawlQueue: Queue,
   ) {}
 
   // API lay danh sach cac nguon theo doi
@@ -72,6 +77,28 @@ export class OsintController {
       message: 'Đã đẩy job phân tích NLP',
       jobId: job.id,
       postId,
+    };
+  }
+
+  /**
+   * [DEV/TEST] Kích crawl NGAY 1 group Facebook (không chờ cron EVERY_HOUR).
+   * Dùng để test có kiểm soát collector feed-inline: POST /api/v1/osint/crawl/facebook/:groupId
+   * Flow: kiểm group tồn tại + đúng platform facebook → enqueue 'crawl-facebook-group'.
+   * KHÔNG tự bật is_active — chỉ đẩy 1 job crawl thủ công cho group này.
+   */
+  @Post('crawl/facebook/:groupId')
+  async crawlFacebookGroup(@Param('groupId') groupId: string) {
+    // 1. Guard: group phải tồn tại (tránh enqueue job cho id rác)
+    const group = await this.groupRepo.findOne({ where: { id: groupId } });
+    if (!group) throw new NotFoundException(`Không thấy group ${groupId}`);
+
+    // 2. Enqueue vào queue crawl thật → FacebookCrawlProcessor sẽ nhả job
+    const job = await this.crawlQueue.add('crawl-facebook-group', { groupId });
+    return {
+      message: 'Đã đẩy job crawl Facebook',
+      jobId: job.id,
+      group: group.name,
+      url: group.url,
     };
   }
 }

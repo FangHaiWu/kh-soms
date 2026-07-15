@@ -5,6 +5,7 @@ import { OsintController } from './osint.controller';
 import { OsintService } from './osint.service';
 import { OsintPost } from './entities/osint-post.entity';
 import { OsintPostNlp } from './entities/osint-post-nlp.entity';
+import { OsintGroup } from './entities/osint-group.entity';
 
 describe('OsintController', () => {
   let controller: OsintController;
@@ -16,7 +17,9 @@ describe('OsintController', () => {
         { provide: OsintService, useValue: {} },
         { provide: getRepositoryToken(OsintPost), useValue: {} },
         { provide: getRepositoryToken(OsintPostNlp), useValue: {} },
+        { provide: getRepositoryToken(OsintGroup), useValue: {} },
         { provide: getQueueToken('osint-nlp'), useValue: {} },
+        { provide: getQueueToken('osint-crawl'), useValue: {} },
       ],
     }).compile();
 
