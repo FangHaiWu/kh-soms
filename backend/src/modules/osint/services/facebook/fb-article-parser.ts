@@ -25,7 +25,12 @@ export function parseArticle(html: string): ParsedArticle | null {
   const $ = cheerio.load(html);
 
   // 1. Nội dung — bắt buộc; thiếu thì bỏ bài
-  const content = $('div[data-ad-preview="message"]').first().text().trim();
+  // FB đổi attribute (phát hiện 21/07): data-ad-preview="message" cũ đã lỗi thời
+  // → dùng data-ad-rendering-role="story_message" (xác nhận qua DOM thật).
+  const content = $('div[data-ad-rendering-role="story_message"]')
+    .first()
+    .text()
+    .trim();
   if (!content) return null;
 
   // 2. externalPostId — quét mọi <a href> tìm permalink khớp 1 trong 4 regex

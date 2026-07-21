@@ -227,7 +227,10 @@ export class FacebookCollector {
     const page = await context.newPage();
     try {
       await page.goto(entryUrl, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('div[role="article"]', { timeout: 15000 });
+      // FB đổi cấu trúc (phát hiện 21/07): bài KHÔNG còn bọc role="article" (chỉ còn
+      // sót lại ở khối bình luận/gợi ý không liên quan). Feed thật là div[role="feed"],
+      // mỗi bài = 1 con trực tiếp của nó.
+      await page.waitForSelector('div[role="feed"]', { timeout: 15000 });
 
       const byId = new Map<string, RawPost>();
       const maxScrolls = Number(this.configService.get('FB_MAX_SCROLLS')) || 8;
@@ -244,12 +247,15 @@ export class FacebookCollector {
           await b.click().catch(() => undefined); // nút biến mất giữa chừng → bỏ qua
         }
 
-        // 2. Lấy outerHTML từng article (browser chỉ serialize, KHÔNG parse)
-        const htmls: string[] = await page.evaluate(() =>
-          Array.from(document.querySelectorAll('div[role="article"]')).map(
+        // 2. Lấy outerHTML từng khối bài — con trực tiếp của div[role="feed"]
+        //    (browser chỉ serialize, KHÔNG parse)
+        const htmls: string[] = await page.evaluate(() => {
+          const feed = document.querySelector('div[role="feed"]');
+          if (!feed) return [];
+          return Array.from(feed.children).map(
             (el) => (el as HTMLElement).outerHTML,
-          ),
-        );
+          );
+        });
 
         // 3. Parse ở Node bằng cheerio → RawPost, dồn Map (dedup theo id)
         for (const html of htmls) {

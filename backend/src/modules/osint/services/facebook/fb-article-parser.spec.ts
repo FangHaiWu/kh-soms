@@ -1,17 +1,18 @@
 import { describe, it, expect } from '@jest/globals';
 import { parseArticle } from './fb-article-parser';
 
-// Dựng HTML 1 article FB giả (đủ/thiếu field) để test parser thuần — không cần browser
+// Dựng HTML 1 khối bài FB giả (đủ/thiếu field) để test parser thuần — không cần browser.
+// Khối bài thật là 1 con trực tiếp của div[role="feed"] (FB không còn bọc role="article" — phát hiện 21/07).
 const article = (opts: {
   msg?: string;
   postHref?: string;
   authorName?: string;
   authorHref?: string;
 }) => `
-  <div role="article">
+  <div>
     ${opts.authorName ? `<span data-ad-rendering-role="profile_name"><a href="${opts.authorHref ?? ''}">${opts.authorName}</a></span>` : ''}
     ${opts.postHref ? `<a href="${opts.postHref}">2 giờ</a>` : ''}
-    ${opts.msg ? `<div data-ad-preview="message">${opts.msg}</div>` : ''}
+    ${opts.msg ? `<div data-ad-rendering-role="story_message">${opts.msg}</div>` : ''}
   </div>`;
 
 describe('parseArticle', () => {
