@@ -136,13 +136,24 @@ Auth: Bearer Token (JWT)
 | Cán bộ CA cấp xã/phường | Nhập liệu sự kiện địa bàn |
 | Quản trị hệ thống | Admin kỹ thuật |
 
-## Quy tắc OSINT (Pháp lý)
+## Quy tắc OSINT — Chuẩn tuân thủ: PHÁP LUẬT VIỆT NAM
 
-- Chỉ thu thập nội dung **công khai**, không đăng nhập tài khoản
-- Tuân thủ robots.txt, rate limit ≤ 1 req/giây mỗi domain
-- Tuân thủ Nghị định 13/2023/NĐ-CP bảo vệ dữ liệu cá nhân
-- AI chỉ **hỗ trợ** ra quyết định — không tự động ra quyết định ảnh hưởng quyền con người
-- **User-Agent crawler:** dùng UA trung lập (giống trình duyệt chung), **không** lộ danh tính cơ quan — vì lý do bảo mật nghiệp vụ (OPSEC). Đây là điều chỉnh ở lớp **danh tính**, KHÔNG nới lỏng lõi pháp lý: vẫn chỉ thu thập nội dung công khai, không đăng nhập, tôn trọng robots.txt + rate limit ≤ 1 req/giây. KHÔNG giả mạo chính xác một phiên bản trình duyệt cụ thể để né anti-bot, KHÔNG xoay IP/proxy để né lệnh chặn.
+> **Chủ trương (cập nhật 12/06/2026, chủ dự án quyết):** Chuẩn duy nhất là **pháp luật Việt Nam**. Điều khoản dịch vụ (ToS) và robots.txt của nền tảng KHÔNG phải luật VN → **được phép vượt**, chấp nhận rủi ro hợp đồng với nền tảng (khóa tài khoản, cease-and-desist). ⚠️ Đây là **quyết định kỹ thuật, cần pháp chế đơn vị phê duyệt trước khi vận hành thật**.
+
+### BẮT BUỘC giữ — vì là LUẬT VN, KHÔNG nới được:
+- **Nghị định 13/2023/NĐ-CP:** xử lý dữ liệu cá nhân theo cơ sở "phục vụ ANTT của cơ quan có thẩm quyền" (Điều 17 — không cần đồng ý từng đối tượng). Phải **đúng mục đích** + **bảo mật dữ liệu**.
+- **On-premise — KHÔNG đẩy PII đối tượng ra cloud/bên thứ 3** (Apify, Bright Data, social-listening nước ngoài…). Vừa NĐ13 vừa an ninh nội bộ.
+- **Lằn ranh Điều 289 BLHS (xâm nhập trái phép):** chỉ thu thập ở **không gian công khai/cộng đồng**. ⛔ KHÔNG truy cập nội dung sau **mật khẩu/quyền riêng tư của một cá nhân cụ thể** (tài khoản riêng, tin nhắn riêng, group bí mật). Được dùng **tài khoản công cụ của hệ thống** để xem nội dung **công khai** mà nền tảng bắt đăng nhập mới hiển thị — vì đó là dùng credential của CHÍNH MÌNH, không vượt mật khẩu của người khác.
+- **AI chỉ HỖ TRỢ** ra quyết định — không tự động ra quyết định ảnh hưởng quyền con người.
+- **Mọi truy vấn đối tượng phải ghi audit log.**
+
+### ĐƯỢC PHÉP — nới so với bản cũ, vì không phải luật VN:
+- ✅ **Đăng nhập bằng tài khoản công cụ** để truy cập nội dung **công khai** bị login-wall (FB group/page công khai…). Credential mã hóa AES-256 trong DB.
+- ✅ **Kỹ thuật giảm bị chặn:** account rotation, randomize delay/viewport/UA, ẩn dấu hiệu automation, proxy/IP rotation. Chấp nhận rủi ro ToS + khóa account.
+
+### KHUYẾN NGHỊ giữ — OPSEC nghiệp vụ, không bắt buộc:
+- UA không lộ danh tính cơ quan (OPSEC).
+- Rate limit hợp lý (mặc định ≤ 1 req/s/domain) để không gây tải bất thường lên nguồn + giảm bị phát hiện.
 
 ## Nguồn tài liệu
 

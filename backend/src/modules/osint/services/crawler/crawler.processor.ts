@@ -113,9 +113,7 @@ export class CrawlerProcessor {
     }
 
     // log + return tom tat
-    this.logger.log(
-      `Nguồn ${sourceId} xử lý ${newArticles.length} bài mới`,
-    );
+    this.logger.log(`Nguồn ${sourceId} xử lý ${newArticles.length} bài mới`);
     return {
       sourceId,
       processed: newArticles.length,

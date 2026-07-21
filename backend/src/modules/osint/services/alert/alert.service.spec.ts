@@ -4,6 +4,7 @@ import { AlertService } from './alert.service';
 import { OsintAlert } from '../../entities/osint-alert.entity';
 import { NlpResult } from '../nlp/nlp.service';
 import { SlangResult } from '../slang-dictionary.service';
+import { GateDecision } from '../gate/gate.service';
 
 describe('AlertService', () => {
   let service: AlertService;
@@ -28,6 +29,7 @@ describe('AlertService', () => {
   const nlp = (over: Partial<NlpResult> = {}): NlpResult => ({
     isRelevant: false,
     matchedKeywords: [],
+    categories: [],
     topKeywordPriority: null,
     ...over,
   });
@@ -170,5 +172,80 @@ describe('AlertService', () => {
 
     expect(r!.description).toContain('bắt, giang hồ');
     expect(r!.description).toContain('cá độ (cờ bạc)');
+  });
+
+  // ================= createAlertFromGate (S5a — alert theo quyết định Gate) =================
+  const decision = (reasons: string[]): GateDecision => ({
+    isNotable: reasons.length > 0,
+    notabilityReasons: reasons,
+    signalFeatures: {},
+  });
+
+  it('gate hot_keyword + priority=1 → critical / high_priority_keyword', async () => {
+    const r = await service.createAlertFromGate(
+      'post-1',
+      'Bắt quả tang ma túy',
+      decision(['hot_keyword']),
+      nlp({ isRelevant: true, matchedKeywords: ['ma túy'], topKeywordPriority: 1 }),
+      slang(),
+    );
+    expect(r!.severity).toBe('critical');
+    expect(r!.alertType).toBe('high_priority_keyword');
+    expect(r!.sourceRefIds).toEqual(['post-1']);
+  });
+
+  it('gate hot_keyword priority=2 → warning / relevant_keyword', async () => {
+    const r = await service.createAlertFromGate(
+      'post-2',
+      't',
+      decision(['hot_keyword']),
+      nlp({ matchedKeywords: ['trộm'], topKeywordPriority: 2 }),
+      slang(),
+    );
+    expect(r!.severity).toBe('warning');
+    expect(r!.alertType).toBe('relevant_keyword');
+  });
+
+  it('gate chỉ corroboration → warning / corroboration', async () => {
+    const r = await service.createAlertFromGate(
+      'post-3',
+      't',
+      decision(['corroboration']),
+      nlp(),
+      slang(),
+    );
+    expect(r!.alertType).toBe('corroboration');
+    expect(r!.severity).toBe('warning');
+  });
+
+  it('gate chỉ abnormal_engagement → info', async () => {
+    const r = await service.createAlertFromGate(
+      'post-4',
+      't',
+      decision(['abnormal_engagement']),
+      nlp(),
+      slang(),
+    );
+    expect(r!.alertType).toBe('abnormal_engagement');
+    expect(r!.severity).toBe('info');
+  });
+
+  it('gate không tín hiệu map được → null, không save', async () => {
+    const r = await service.createAlertFromGate('post-5', 't', decision([]), nlp(), slang());
+    expect(r).toBeNull();
+    expect(saveMock).not.toHaveBeenCalled();
+  });
+
+  it('dedup 1h: đã có alert cùng loại → null (chống double-alert)', async () => {
+    getOneMock.mockResolvedValue({ id: 'existing' });
+    const r = await service.createAlertFromGate(
+      'post-6',
+      't',
+      decision(['hot_keyword']),
+      nlp({ topKeywordPriority: 1 }),
+      slang(),
+    );
+    expect(r).toBeNull();
+    expect(saveMock).not.toHaveBeenCalled();
   });
 });

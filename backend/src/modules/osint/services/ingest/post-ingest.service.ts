@@ -1,40 +1,39 @@
-declare module '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { createHash } from 'crypto';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 import { OsintPost } from '../../entities/osint-post.entity';
+import { OsintPostNlp } from '../../entities/osint-post-nlp.entity';
 import { OsintCrawlLog } from '../../entities/osint-crawl-log.entity';
-import { NlpService } from '../nlp/nlp.service';
-import { SlangDictionaryService } from '../slang-dictionary.service';
-import { AlertService } from '../alert/alert.service';
 import { RawPost } from '../collectors/raw-post.interface';
+import { OsintComment } from '@modules/osint/entities/osint-comment.entity';
 
 /** Tham số ngữ cảnh 1 mẻ ingest — biết post thuộc platform/group/crawl_type nào. */
 export interface IngestContext {
   platformId: string;
   crawlType: string; // denormalized từ platform.crawlerType, ghi vào crawl_log cho dễ query
   groupId?: string | null;
-  // Mặc định true. Đặt false cho RSS: bài báo đã được CrawlerProcessor tạo alert ở cấp
-  // osint_articles (Sprint 1) → nếu ingest vào osint_posts lại alert nữa sẽ TRÙNG cảnh báo.
+  // @deprecated S5a: alert đã dời sang worker (Gate quyết định). Giữ field cho tương thích caller
+  // nhưng ingest KHÔNG còn tạo alert nên cờ này hiện là no-op.
   createAlerts?: boolean;
 }
 
 /** Số liệu tổng kết 1 mẻ ingest — trả về cho caller in báo cáo demo. */
 export interface IngestSummary {
-  collected: number; // số post MỚI thực sự INSERT
+  collected: number; // số post MỚI thực sự INSERT + enqueue phân tích
   skipped: number; // số post bị bỏ vì đã tồn tại (dedup)
-  relevant: number; // số post MỚI dính keyword ANTT
-  alertsCreated: number; // số alert mới sinh ra
+  relevant: number; // S5a: luôn 0 ở ingest (phân tích chuyển sang worker async)
+  alertsCreated: number; // S5a: luôn 0 ở ingest (alert do worker/Gate tạo)
 }
 
 /**
  * PostIngestService — tầng NẠP dùng chung cho mọi nguồn (RSS, Telegram, Facebook...).
  *
- * Đây là điểm HỢP NHẤT của kiến trúc: bất kể post đến từ đâu, đều đổ về cùng bảng
- * osint_posts và đi qua cùng pipeline NLP → Slang → Alert. Collector chỉ lo "lấy về";
- * service này lo "chuẩn hoá + dedup + phân tích + lưu".
+ * S5a: ingest ĐÃ MỎNG LẠI. Nhiệm vụ chỉ còn "lấy về → dedup → lưu thô → xếp hàng".
+ * Toàn bộ phân tích (Normalize → NLP → Trust → Gate → alert) chuyển sang worker
+ * NlpProcessProcessor qua queue 'osint-nlp' (async, tách khỏi hot-path crawl).
  */
 @Injectable()
 export class PostIngestService {
@@ -43,47 +42,23 @@ export class PostIngestService {
   constructor(
     @InjectRepository(OsintPost)
     private postRepo: Repository<OsintPost>,
+    @InjectRepository(OsintPostNlp)
+    private postNlpRepo: Repository<OsintPostNlp>,
     @InjectRepository(OsintCrawlLog)
     private crawlLogRepo: Repository<OsintCrawlLog>,
-    private nlpService: NlpService,
-    private slangService: SlangDictionaryService,
-    private alertService: AlertService,
+    @InjectRepository(OsintComment)
+    private commentRepo: Repository<OsintComment>,
+    @InjectQueue('osint-nlp')
+    private nlpQueue: Queue,
   ) {}
-
-  /** SHA-256 nội dung — phục vụ phát hiện trùng nội dung (ngoài dedup theo external id). */
-  private contentHash(content: string): string {
-    return createHash('sha256').update(content).digest('hex');
-  }
-
-  /**
-   * Ánh xạ độ ưu tiên keyword (1 = nóng nhất) → điểm rủi ro 0..1 để hiển thị/sắp xếp.
-   * Đây là điểm rủi ro TẠM (rule-based); Sprint 5 sẽ thay bằng mô hình định lượng.
-   */
-  private riskFromPriority(topPriority: number | null): number {
-    // Bảng tra cứng: priority càng nhỏ → rủi ro càng cao
-    switch (topPriority) {
-      case 1:
-        return 0.9;
-      case 2:
-        return 0.7;
-      case 3:
-        return 0.5;
-      case 4:
-        return 0.3;
-      case 5:
-        return 0.15;
-      default:
-        return 0; // không match keyword nào
-    }
-  }
 
   /**
    * Nạp 1 mẻ RawPost vào osint_posts.
-   * Flow mỗi post: dedup → NLP+Slang → tạo entity → save → tạo alert → đếm.
+   * Flow mỗi post: dedup → lưu thô → tạo osint_post_nlp(pending) → enqueue → (lưu comment thô).
    */
   async ingest(
     rawPosts: RawPost[],
-    ctx: IngestContext, // platform, crawl_type, group_id, create_alerts
+    ctx: IngestContext,
   ): Promise<IngestSummary> {
     const startedAt = new Date();
     const summary: IngestSummary = {
@@ -103,33 +78,26 @@ export class PostIngestService {
       });
       if (exists) {
         summary.skipped++;
-        continue; // bỏ qua, không phân tích lại để tiết kiệm
+        continue; // đã có → không enqueue lại
       }
 
-      // 2. Phân tích NLP + Slang (post không có title → truyền '' cho tham số title)
-      const nlp = await this.nlpService.analyzeArticle('', raw.content);
-      const slang = await this.slangService.detectSlang('', raw.content);
-
-      // 3. Dựng entity trong memory (chưa INSERT)
+      // 2. Dựng entity THÔ (chưa phân tích — content_hash/keywords/isRelevant do worker ghi)
       const post = this.postRepo.create({
         platformId: ctx.platformId,
         groupId: ctx.groupId ?? undefined,
         externalPostId: raw.externalPostId,
         externalGroupId: raw.externalGroupId ?? undefined,
         authorName: raw.authorName ?? undefined,
+        authorExternalId: raw.authorExternalId ?? undefined,
         content: raw.content,
-        contentHash: this.contentHash(raw.content),
         mediaUrls: raw.mediaUrls,
         engagement: raw.engagement,
-        keywords: nlp.matchedKeywords,
-        isRelevant: nlp.isRelevant,
-        riskScore: this.riskFromPriority(nlp.topKeywordPriority),
         sourceRefIds: raw.sourceRefIds,
         platformSpecificData: raw.platformSpecificData,
         publishedAt: raw.publishedAt ?? undefined,
       });
 
-      // 4. Persist — TypeORM gán id + timestamps. Tách try/catch để 1 post lỗi không hỏng cả mẻ.
+      // 3. Persist post. Tách try/catch để 1 post lỗi không hỏng cả mẻ.
       let saved: OsintPost;
       try {
         saved = await this.postRepo.save(post);
@@ -139,25 +107,44 @@ export class PostIngestService {
         );
         continue;
       }
-      summary.collected++;
-      if (nlp.isRelevant) summary.relevant++;
 
-      // 5. Tạo alert (tái dùng AlertService — source_ref_ids nhận post.id, dedup 1h tự xử lý).
-      //    Bỏ qua nếu createAlerts=false (RSS đã alert ở cấp article, tránh trùng).
-      //    title alert = 80 ký tự đầu của nội dung (post không có tiêu đề riêng).
-      if (ctx.createAlerts !== false) {
-        const alertTitle = raw.content.slice(0, 80);
-        const alert = await this.alertService.createAlertForArticle(
-          saved.id,
-          alertTitle,
-          nlp,
-          slang,
-        );
-        if (alert) summary.alertsCreated++;
+      // 4. Tạo hàng phân tích 'pending' + đẩy job sang worker osint-nlp.
+      //    Worker lo Normalize→NLP→Trust→Gate→alert. Ingest KHÔNG phân tích/alert nữa.
+      await this.postNlpRepo.save(
+        this.postNlpRepo.create({
+          postId: saved.id,
+          processingStatus: 'pending',
+        }),
+      );
+      await this.nlpQueue.add('process-post', { postId: saved.id });
+      summary.collected++;
+
+      // 5. Lưu comment THÔ (dedup theo unique). NLP comment để pha sau, không làm inline.
+      if (!raw.comments) continue;
+      for (const rawComment of raw.comments) {
+        if (!rawComment.externalCommentId) continue; // tránh ghi null
+        if (this.isJunkComment(rawComment.content)) continue; // bỏ rác hiển nhiên
+
+        const comment = this.commentRepo.create({
+          postId: saved.id,
+          externalCommentId: rawComment.externalCommentId,
+          authorName: rawComment.authorName,
+          authorExternalId: rawComment.authorExternalId,
+          content: rawComment.content,
+          depth: rawComment.depth ?? 0,
+        });
+        try {
+          await this.commentRepo.save(comment);
+        } catch (e: any) {
+          if (e?.code === '23505') continue; // đã có comment này → dedup, im lặng
+          this.logger.error(
+            `Lưu comment ${comment.externalCommentId} thất bại: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
       }
     }
 
-    // 6. Ghi 1 dòng osint_crawl_logs cho cả mẻ — phục vụ health-check & truy vết về sau
+    // 6. Ghi 1 dòng osint_crawl_logs cho cả mẻ — phục vụ health-check & truy vết
     const completedAt = new Date();
     await this.crawlLogRepo.save(
       this.crawlLogRepo.create({
@@ -174,5 +161,14 @@ export class PostIngestService {
     );
 
     return summary;
+  }
+
+  // Comment rác hiển nhiên: rỗng/quá ngắn hoặc chỉ emoji/dấu câu, hoặc cụm nút UI
+  private isJunkComment(content: string): boolean {
+    const t = content.trim();
+    if (t.length < 10) return true; // quá ngắn
+    if (!/\p{L}/u.test(t)) return true; // không có chữ (chỉ emoji/số/dấu)
+    if (/^(thích|trả lời|chia sẻ|like|reply|share)\b/i.test(t)) return true; // text nút UI
+    return false;
   }
 }

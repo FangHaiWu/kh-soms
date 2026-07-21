@@ -99,6 +99,16 @@ export class OsintPost {
   @Column('jsonb', { name: 'platform_specific_data', nullable: true })
   platformSpecificData: Record<string, unknown>;
 
+  @Column('varchar', { length: 20, name: 'verdict', default: 'unverified' })
+  verdict: string;
+
+  @Column('varchar', {
+    length: 64,
+    name: 'independent_cluster_id',
+    nullable: true,
+  })
+  independentClusterId: string;
+  
   @Column('timestamptz', {
     name: 'crawled_at',
     default: () => 'NOW()',

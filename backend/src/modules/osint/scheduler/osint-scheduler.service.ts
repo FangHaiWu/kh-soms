@@ -7,6 +7,7 @@ import { OsintPlatform } from '../entities/osint-platform.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { EwmWeightJob } from '../services/gate/ewm-weight.job/ewm-weight.job';
 
 @Injectable()
 export class OsintSchedulerService {
@@ -19,7 +20,17 @@ export class OsintSchedulerService {
     private groupRepo: Repository<OsintGroup>,
     @InjectRepository(OsintPlatform)
     private platformRepo: Repository<OsintPlatform>,
+    private ewmWeightJob: EwmWeightJob,
   ) {}
+
+  // S5a: tính lại trọng số Gate (EWM) từ signal_features tích lũy. Hằng ngày là đủ —
+  // trọng số xếp hạng không cần realtime; chạy khi đã có kha khá mẫu để entropy có nghĩa.
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async scheduleEwmWeights() {
+    this.logger.log('Bắt đầu tính lại trọng số Gate (EWM)');
+    await this.ewmWeightJob.run();
+    this.logger.log('Đã cập nhật trọng số Gate (EWM) vào osint_gate_config');
+  }
 
   // Cron job chay moi 1h (co the dieu chinh thoi gian tuong ung)
   @Cron(CronExpression.EVERY_5_MINUTES) // Chạy moi 15 phut
@@ -68,5 +79,40 @@ export class OsintSchedulerService {
       await this.crawlQueue.add('crawl-news-source', { sourceId: source.id });
     }
     this.logger.log(`Đã lên lịch crawl ${sources.length} nguồn báo scrape`);
+  }
+
+  // Cron FB phải thưa nhau ra ( >=2-3h/group), mỗi tick chỉ đẩy 1-2 group cũ nhất
+  @Cron(CronExpression.EVERY_HOUR)
+  async scheduleFacebookCrawl() {
+    // 1. Guard: chưa seed platform facebook thì bỏ qua, không làm sập cron
+    const facebook = await this.platformRepo.findOne({
+      where: { name: 'facebook' },
+    });
+    if (!facebook) return;
+
+    const groups = await this.groupRepo.find({
+      where: { platformId: facebook.id, isActive: true },
+    });
+
+    // 2. Chỉ lấy group đã quá hạn crawl (mặc định 3h nếu crawlIntervalHours null)
+    const due = groups.filter((g) => {
+      const intervalH = g.crawlIntervalHours ?? 3;
+      if (!g.lastCrawledAt) return true; // Chưa crawl bao giờ
+      const hoursSince = (Date.now() - g.lastCrawledAt.getTime()) / 3.6e6;
+      return hoursSince > intervalH;
+    });
+    // 3. Stagger: ưu tiên group cũ nhất, mỗi tick chỉ 1 - 2 group (tránh đốt acct)
+    due.sort((a, b) => {
+      const ta = a.lastCrawledAt?.getTime() ?? 0;
+      const tb = b.lastCrawledAt?.getTime() ?? 0;
+      return ta - tb;
+    });
+    const batch = due.slice(0, 2);
+    for (const group of batch) {
+      await this.crawlQueue.add('crawl-facebook-group', { groupId: group.id });
+    }
+    this.logger.log(
+      `Đã lên lịch crawl ${batch.length} group Facebook (due=${due.length})`,
+    );
   }
 }

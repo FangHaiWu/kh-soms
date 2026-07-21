@@ -14,15 +14,27 @@
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
-    "test:pipeline": "ts-node src/scripts/test-pipeline.ts",
-    "demo:sprint3": "ts-node src/scripts/demo-sprint3.ts",
+    "test:pipeline": "ts-node -r tsconfig-paths/register src/scripts/test-pipeline.ts",
+    "test:s5a": "ts-node -r tsconfig-paths/register src/scripts/test-s5a-pipeline.ts",
+    "test:s5a-queue": "ts-node -r tsconfig-paths/register src/scripts/test-s5a-queue.ts",
+    "demo:sprint3": "ts-node -r tsconfig-paths/register src/scripts/demo-sprint3.ts",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "predev": "lsof -ti:3000 | xargs kill 2>/dev/null || true",
     "dev": "nest start --watch",
-    "test:extractor": "ts-node src/scripts/test-extractor.ts"
+    "test:extractor": "ts-node -r tsconfig-paths/register src/scripts/test-extractor.ts",
+    "test:fb-account": "ts-node -r tsconfig-paths/register src/scripts/test-fb-account.ts",
+    "test:fb-collector": "ts-node -r tsconfig-paths/register src/scripts/test-fb-collector.ts",
+    "add:fb-account": "ts-node -r tsconfig-paths/register src/scripts/add-fb-account.ts",
+    "test:fb-login": "ts-node -r tsconfig-paths/register src/scripts/test-fb-login.ts",
+    "test:fb-session": "ts-node -r tsconfig-paths/register src/scripts/test-fb-session.ts",
+    "test:fb-scrape-ids": "ts-node -r tsconfig-paths/register src/scripts/test-fb-scrape-ids.ts",
+    "test:fb-scrape-detail": "ts-node -r tsconfig-paths/register src/scripts/test-fb-scrape-detail.ts",
+    "test:fb-collect": "ts-node -r tsconfig-paths/register src/scripts/test-fb-collect.ts",
+    "capture:fb-session": "ts-node -r tsconfig-paths/register src/scripts/capture-fb-session.ts",
+    "test-facebook-processor": "ts-node -r tsconfig-paths/register src/scripts/test-facebook-processor.ts"
   },
   "dependencies": {
     "@nestjs/bull": "^11.0.4",
@@ -43,6 +55,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.21.0",
+    "playwright": "^1.60.0",
     "reflect-metadata": "^0.2.0",
     "rss-parser": "^3.13.0",
     "rxjs": "^7.8.1",
@@ -82,6 +95,11 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^@common/(.*)$": "<rootDir>/common/$1",
+      "^@modules/(.*)$": "<rootDir>/modules/$1",
+      "^@app/(.*)$": "<rootDir>/$1"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

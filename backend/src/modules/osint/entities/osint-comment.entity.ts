@@ -51,6 +51,11 @@ export class OsintComment {
     reactions?: Record<string, number>;
     [key: string]: unknown;
   };
+  @Column('boolean', { name: 'is_relevant', default: false })
+  isRelevant: boolean;
+
+  @Column('text', { array: true, nullable: true })
+  keywords: string[];
 
   // Platform-specific comment data (TikTok duets, Threads reply context, etc.)
   @Column('jsonb', { name: 'platform_specific_data', nullable: true })

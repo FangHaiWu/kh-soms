@@ -29,8 +29,24 @@ import { TelegramPublicCollector } from './services/collectors/telegram-public.c
 import { PostIngestService } from './services/ingest/post-ingest.service';
 import { TelegramCrawlProcessor } from './services/crawler/telegram-crawl.processor';
 import { NewsExtractorBridgeService } from './services/news-extractor/news-extractor-bridge.service';
+import { NlpAnalyzerBridgeService } from './services/nlp-analyzer/nlp-analyzer-bridge.service';
+import { IndicatorExtractorService } from './services/indicator/indicator-extractor.service';
 import { NewsCrawlCollector } from './services/collectors/news-crawl.collector';
 import { NewsCrawlProcessor } from './services/crawler/news-crawl.processor';
+import { OsintFacebookAccount } from '@modules/osint/entities/osint-facebook-account.entity';
+import { CommonModule } from 'src/common/common.module';
+import { FacebookAccountManager } from '@modules/osint/services/facebook/facebook-account-manager.service';
+import { FacebookCollector } from '@modules/osint/services/facebook/facebook.collector';
+import { FacebookCrawlProcessor } from './services/crawler/facebook-crawl.processor';
+import { OsintGateConfig } from './entities/osint-gate-config.entity';
+import { EwmWeightJob } from '@modules/osint/services/gate/ewm-weight.job/ewm-weight.job';
+import { NormalizeService } from './services/normalize/normalize.service';
+import { TrustService } from './services/trust/trust.service';
+import { GateService } from './services/gate/gate.service';
+import { NlpProcessProcessor } from './services/nlp-process/nlp-process.processor';
+import { OsintActor } from './entities/osint-actor.entity';
+import { OsintActorStat } from './entities/osint-actor-stat.entity';
+import { ActorAggregateJob } from './services/actor/actor-aggregate.job';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -45,8 +61,14 @@ import { NewsCrawlProcessor } from './services/crawler/news-crawl.processor';
       OsintComment,
       OsintCrawlLog,
       OsintPostNlp,
+      OsintFacebookAccount,
+      OsintGateConfig,
+      OsintActor,
+      OsintActorStat,
     ]),
     BullModule.registerQueue({ name: 'osint-crawl' }),
+    BullModule.registerQueue({ name: 'osint-nlp' }), // queue phân tích NLP tách khỏi crawl
+    CommonModule, // <- thêm để OsintModule dùng được EncryptionService
   ],
 
   // TypeOrmModule.forFeature([...]) -> Tao ra cac Repository cho moi Entity va dua vao DI container cuar module
@@ -61,11 +83,22 @@ import { NewsCrawlProcessor } from './services/crawler/news-crawl.processor';
     PlatformService,
     GroupService,
     TelegramPublicCollector,
+    FacebookCrawlProcessor,
     PostIngestService,
     TelegramCrawlProcessor,
     NewsExtractorBridgeService,
+    NlpAnalyzerBridgeService,
+    IndicatorExtractorService,
     NewsCrawlCollector,
     NewsCrawlProcessor,
+    FacebookAccountManager,
+    FacebookCollector,
+    EwmWeightJob,
+    NormalizeService,
+    TrustService,
+    GateService,
+    NlpProcessProcessor,
+    ActorAggregateJob,
   ],
   controllers: [OsintController, PlatformController, GroupsController],
   exports: [TypeOrmModule],
