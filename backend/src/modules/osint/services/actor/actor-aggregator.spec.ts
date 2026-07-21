@@ -127,6 +127,32 @@ describe('aggregatePosts', () => {
     expect(g.lastPostAt).toEqual(new Date('2026-07-12'));
     expect(m.get('account:pl1:u9')!.postCount).toBe(1); // account chỉ có post 1
   });
+
+  it('1 bài có group+account+domain+fingerprint → 4 actor riêng, mỗi actor postCount=1', () => {
+    const posts = [
+      post({
+        groupId: 'g1',
+        authorExternalId: 'u9',
+        matchedCategories: ['lua-dao'],
+        indicators: [
+          { type: 'URL', normalized: 'scam-site.com' },
+          { type: 'PHONE', normalized: '0912345678' },
+        ],
+        createdAt: new Date('2026-07-11'),
+      }),
+    ];
+    const m = aggregatePosts(posts);
+    expect([...m.keys()].sort()).toEqual([
+      'account:pl1:u9',
+      'domain:scam-site.com',
+      'fingerprint:PHONE:0912345678',
+      'group:g1',
+    ]);
+    for (const agg of m.values()) {
+      expect(agg.postCount).toBe(1);
+      expect(agg.categoryCounts['lua-dao']).toBe(1);
+    }
+  });
 });
 
 describe('isRepeatOffender', () => {
