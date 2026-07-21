@@ -19,12 +19,12 @@ export interface PostForActor {
   authorName: string | null;
   matchedCategories: string[] | null;
   isNotable: boolean;
-  indicators: { normalized: string }[] | null;
+  indicators: { type: string; normalized: string }[] | null;
   createdAt: Date;
 }
 
 export interface ResolvedActor {
-  actorType: 'group' | 'account';
+  actorType: 'group' | 'account' | 'domain' | 'fingerprint';
   actorKey: string;
   displayName: string | null;
   platformId: string | null;
@@ -42,8 +42,9 @@ export interface ActorAgg {
   lastPostAt: Date;
 }
 
-// 1 post → 0..2 actor. group nếu có groupId; account nếu có authorExternalId.
-// Bài RSS/web (groupId + author đều null) → [] (tự loại khỏi xếp hạng).
+// 1 post → 0..N actor. group nếu có groupId; account nếu có authorExternalId;
+// domain cho mỗi indicator URL; fingerprint cho mỗi indicator PHONE/BANK_ACCOUNT/CRYPTO_WALLET/HANDLE.
+// Bài RSS/web (groupId + author đều null, không indicator) → [] (tự loại khỏi xếp hạng).
 export function resolveActors(p: PostForActor): ResolvedActor[] {
   const out: ResolvedActor[] = [];
   if (p.groupId) {
@@ -61,6 +62,16 @@ export function resolveActors(p: PostForActor): ResolvedActor[] {
       displayName: p.authorName,
       platformId: p.platformId,
     });
+  }
+  for (const ind of p.indicators ?? []) {
+    if (ind.type === 'URL') {
+      out.push({
+        actorType: 'domain',
+        actorKey: ind.normalized,
+        displayName: ind.normalized,
+        platformId: null,
+      });
+    }
   }
   return out;
 }

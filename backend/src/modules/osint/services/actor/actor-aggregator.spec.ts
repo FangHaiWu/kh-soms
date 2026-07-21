@@ -34,6 +34,18 @@ describe('resolveActors', () => {
   it('không group/author (bài RSS) → 0 actor', () => {
     expect(resolveActors(post({}))).toHaveLength(0);
   });
+  it('có indicator URL → domain-actor, actorKey = domain', () => {
+    const r = resolveActors(
+      post({ indicators: [{ type: 'URL', normalized: 'scam-site.com' }] }),
+    );
+    expect(r).toHaveLength(1);
+    expect(r[0]).toEqual({
+      actorType: 'domain',
+      actorKey: 'scam-site.com',
+      displayName: 'scam-site.com',
+      platformId: null,
+    });
+  });
 });
 
 describe('aggregatePosts', () => {
@@ -44,13 +56,13 @@ describe('aggregatePosts', () => {
         authorExternalId: 'u9',
         matchedCategories: ['lua-dao', 'Tội phạm'],
         isNotable: true,
-        indicators: [{ normalized: '0912345678' }],
+        indicators: [{ type: 'PHONE', normalized: '0912345678' }],
         createdAt: new Date('2026-07-11'),
       }),
       post({
         groupId: 'g1',
         matchedCategories: ['lua-dao'],
-        indicators: [{ normalized: '0912345678' }],
+        indicators: [{ type: 'PHONE', normalized: '0912345678' }],
         createdAt: new Date('2026-07-12'),
       }),
     ];
