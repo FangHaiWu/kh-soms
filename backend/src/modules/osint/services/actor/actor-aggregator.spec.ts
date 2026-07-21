@@ -46,6 +46,57 @@ describe('resolveActors', () => {
       platformId: null,
     });
   });
+  it('có indicator PHONE → fingerprint-actor, actorKey có tiền tố type', () => {
+    const r = resolveActors(
+      post({ indicators: [{ type: 'PHONE', normalized: '0912345678' }] }),
+    );
+    expect(r).toHaveLength(1);
+    expect(r[0]).toEqual({
+      actorType: 'fingerprint',
+      actorKey: 'PHONE:0912345678',
+      displayName: '0912345678',
+      platformId: null,
+    });
+  });
+
+  it('2 indicator PHONE khác nhau trong cùng bài → 2 fingerprint-actor riêng', () => {
+    const r = resolveActors(
+      post({
+        indicators: [
+          { type: 'PHONE', normalized: '0912345678' },
+          { type: 'PHONE', normalized: '0987654321' },
+        ],
+      }),
+    );
+    expect(r).toHaveLength(2);
+    expect(r.map((a) => a.actorKey).sort()).toEqual([
+      'PHONE:0912345678',
+      'PHONE:0987654321',
+    ]);
+  });
+
+  it('PHONE và BANK_ACCOUNT cùng chuỗi normalized → actorKey KHÔNG đụng nhau (tiền tố type)', () => {
+    const r = resolveActors(
+      post({
+        indicators: [
+          { type: 'PHONE', normalized: '1234567890' },
+          { type: 'BANK_ACCOUNT', normalized: '1234567890' },
+        ],
+      }),
+    );
+    expect(r).toHaveLength(2);
+    expect(r.map((a) => a.actorKey).sort()).toEqual([
+      'BANK_ACCOUNT:1234567890',
+      'PHONE:1234567890',
+    ]);
+  });
+
+  it('indicator type không nằm trong danh sách (vd MISC lạ) → bỏ qua, không tạo actor', () => {
+    const r = resolveActors(
+      post({ indicators: [{ type: 'MISC_UNKNOWN', normalized: 'x' }] }),
+    );
+    expect(r).toHaveLength(0);
+  });
 });
 
 describe('aggregatePosts', () => {

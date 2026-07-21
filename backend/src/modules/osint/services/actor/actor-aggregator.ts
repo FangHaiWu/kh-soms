@@ -10,6 +10,15 @@ export const CNC_CATEGORIES = new Set<string>([
   'kich-dong-xuyen-tac',
 ]);
 
+// 4 loại indicator tính vào fingerprint-actor (vân tay chỉ dấu lặp — bắt kẻ đổi account).
+// URL không nằm trong này — URL đi vào domain-actor riêng (nhánh khác trong resolveActors).
+const FINGERPRINT_INDICATOR_TYPES = new Set<string>([
+  'PHONE',
+  'BANK_ACCOUNT',
+  'CRYPTO_WALLET',
+  'HANDLE',
+]);
+
 // Field 1 post cần cho gộp actor (map từ osint_posts ⋈ osint_post_nlp)
 export interface PostForActor {
   groupId: string | null;
@@ -71,6 +80,13 @@ export function resolveActors(p: PostForActor): ResolvedActor[] {
         displayName: ind.normalized,
         platformId: null,
       });
+    } else if (FINGERPRINT_INDICATOR_TYPES.has(ind.type)) {
+      out.push({
+        actorType: 'fingerprint',
+        actorKey: `${ind.type}:${ind.normalized}`,
+        displayName: ind.normalized,
+        platformId: null,
+      });
     }
   }
   return out;
@@ -105,7 +121,8 @@ export function aggregatePosts(posts: PostForActor[]): Map<string, ActorAgg> {
           agg.categoryCounts[c] = (agg.categoryCounts[c] ?? 0) + 1;
         }
       }
-      for (const ind of p.indicators ?? []) agg.indicatorSet.add(ind.normalized);
+      for (const ind of p.indicators ?? [])
+        agg.indicatorSet.add(ind.normalized);
       if (p.createdAt > agg.lastPostAt) agg.lastPostAt = p.createdAt;
     }
   }
