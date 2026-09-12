@@ -5,7 +5,12 @@ import { Repository } from 'typeorm';
 import { OsintPost } from '@modules/osint/entities/osint-post.entity';
 import { OsintActor } from '@modules/osint/entities/osint-actor.entity';
 import { OsintActorStat } from '@modules/osint/entities/osint-actor-stat.entity';
-import { aggregatePosts, isRepeatOffender, PostForActor } from './actor-aggregator';
+import {
+  aggregatePosts,
+  isRepeatOffender,
+  PostForActor,
+} from './actor-aggregator';
+import { AlertService } from '@modules/osint/services/alert/alert.service';
 
 const WINDOW_DAYS = 30;
 
@@ -15,6 +20,7 @@ const WINDOW_DAYS = 30;
  * Flow: load post+nlp+group trong cửa sổ 30 ngày → map PostForActor → aggregatePosts (thuần)
  * → upsert osint_actor + osint_actor_stat. Đánh dấu is_repeat_offender khi ≥ ngưỡng bài CNC.
  * Idempotent: recompute đè theo (actor_type, actor_key) + (actor_id, window_days).
+ * Actor lần đầu vượt ngưỡng (false→true) → bắn system alert cho điều tra viên.
  */
 @Injectable()
 export class ActorAggregateJob {
@@ -26,6 +32,7 @@ export class ActorAggregateJob {
     @InjectRepository(OsintActor) private actorRepo: Repository<OsintActor>,
     @InjectRepository(OsintActorStat)
     private statRepo: Repository<OsintActorStat>,
+    private alertService: AlertService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM) // sau EWM 2AM
@@ -88,17 +95,36 @@ export class ActorAggregateJob {
       let stat = await this.statRepo.findOne({
         where: { actorId: actor.id, windowDays: WINDOW_DAYS },
       });
+      // Lưu trạng thái tái phạm TRƯỚC khi đè, để phát hiện thời điểm vượt ngưỡng lần đầu (false→true)
+      const wasRepeatOffender = stat?.isRepeatOffender ?? false;
       if (!stat) {
-        stat = this.statRepo.create({ actorId: actor.id, windowDays: WINDOW_DAYS });
+        stat = this.statRepo.create({
+          actorId: actor.id,
+          windowDays: WINDOW_DAYS,
+        });
       }
       stat.postCount = agg.postCount;
       stat.notableCount = agg.notableCount;
       stat.categoryCounts = agg.categoryCounts;
       stat.distinctIndicators = agg.indicatorSet.size;
       stat.lastPostAt = agg.lastPostAt;
-      stat.isRepeatOffender = isRepeatOffender(agg.categoryCounts, this.threshold);
+      stat.isRepeatOffender = isRepeatOffender(
+        agg.categoryCounts,
+        this.threshold,
+      );
       stat.computedAt = new Date();
       await this.statRepo.save(stat);
+
+      // Chỉ bắn alert lần đầu vượt ngưỡng — recompute hằng ngày không spam lại actor đã biết
+      if (stat.isRepeatOffender && !wasRepeatOffender) {
+        await this.alertService.createSystemAlert({
+          alertType: 'actor_repeat_offender',
+          severity: 'warning',
+          title: `Chủ thể tái phạm CNC: ${actor.displayName ?? actor.actorKey}`,
+          description: `Loại: ${actor.actorType} · ${agg.postCount} bài trong ${WINDOW_DAYS} ngày · category: ${JSON.stringify(agg.categoryCounts)}`,
+          sourceRefIds: [actor.id],
+        });
+      }
       count++;
     }
     return count;

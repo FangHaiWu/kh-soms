@@ -43,13 +43,71 @@ describe('ActorAggregateJob', () => {
       },
     };
 
-    const job = new ActorAggregateJob(postRepo, actorRepo, statRepo);
+    const alertsCreated: any[] = [];
+    const alertService: any = {
+      createSystemAlert: async (p: any) => {
+        alertsCreated.push(p);
+        return p;
+      },
+    };
+
+    const job = new ActorAggregateJob(postRepo, actorRepo, statRepo, alertService);
     const n = await job.run();
 
     expect(n).toBe(1);
     expect(statSaved[0].isRepeatOffender).toBe(true);
     expect(statSaved[0].categoryCounts['lua-dao']).toBe(3);
     expect(statSaved[0].postCount).toBe(3);
+    // Actor mới (chưa có stat trước đó) vừa vượt ngưỡng → phải bắn alert
+    expect(alertsCreated).toHaveLength(1);
+    expect(alertsCreated[0].alertType).toBe('actor_repeat_offender');
+    expect(alertsCreated[0].sourceRefIds).toEqual(['a-0']);
+  });
+
+  it('actor đã là repeat offender từ trước → recompute lại KHÔNG bắn alert lần 2', async () => {
+    const posts = [1, 2, 3].map((i) => ({
+      groupId: 'g1',
+      platformId: 'pl1',
+      authorExternalId: null,
+      authorName: null,
+      createdAt: new Date(`2026-07-1${i}`),
+      group: { name: 'Kênh X' },
+      nlp: { matchedCategories: ['lua-dao'], isNotable: true, indicators: null },
+    }));
+    const qb: any = {
+      leftJoinAndSelect: () => qb,
+      where: () => qb,
+      getMany: async () => posts,
+    };
+    const postRepo: any = { createQueryBuilder: () => qb };
+    const actorRepo: any = {
+      findOne: async () => ({ id: 'a-existing', actorType: 'group', actorKey: 'g1' }),
+      create: (x: any) => x,
+      save: async (x: any) => x,
+    };
+    const statSaved: any[] = [];
+    const statRepo: any = {
+      // Stat đã tồn tại với is_repeat_offender=true từ lần chạy trước
+      findOne: async () => ({ actorId: 'a-existing', windowDays: 30, isRepeatOffender: true }),
+      create: (x: any) => x,
+      save: async (x: any) => {
+        statSaved.push(x);
+        return x;
+      },
+    };
+    const alertsCreated: any[] = [];
+    const alertService: any = {
+      createSystemAlert: async (p: any) => {
+        alertsCreated.push(p);
+        return p;
+      },
+    };
+
+    const job = new ActorAggregateJob(postRepo, actorRepo, statRepo, alertService);
+    await job.run();
+
+    expect(statSaved[0].isRepeatOffender).toBe(true);
+    expect(alertsCreated).toHaveLength(0);
   });
 
   it('post có indicator PHONE → upsert thêm fingerprint-actor (không chỉ group)', async () => {
@@ -94,7 +152,8 @@ describe('ActorAggregateJob', () => {
       },
     };
 
-    const job = new ActorAggregateJob(postRepo, actorRepo, statRepo);
+    const alertService: any = { createSystemAlert: async () => null };
+    const job = new ActorAggregateJob(postRepo, actorRepo, statRepo, alertService);
     const n = await job.run();
 
     expect(n).toBe(1); // post không group/author → chỉ actor fingerprint
