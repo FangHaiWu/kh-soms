@@ -75,7 +75,11 @@ describe('AlertService', () => {
     const r = await service.createAlertForArticle(
       'art-1',
       'Giang hồ bị bắt',
-      nlp({ isRelevant: true, matchedKeywords: ['bắt'], topKeywordPriority: 1 }),
+      nlp({
+        isRelevant: true,
+        matchedKeywords: ['bắt'],
+        topKeywordPriority: 1,
+      }),
       slang({
         hasSlang: true,
         detectedSlang: [{ term: 'cá độ', meaning: 'cờ bạc' }],
@@ -146,7 +150,11 @@ describe('AlertService', () => {
     const r = await service.createAlertForArticle(
       'art-5',
       'Bài đã cảnh báo',
-      nlp({ isRelevant: true, matchedKeywords: ['cướp'], topKeywordPriority: 1 }),
+      nlp({
+        isRelevant: true,
+        matchedKeywords: ['cướp'],
+        topKeywordPriority: 1,
+      }),
       slang(),
     );
 
@@ -186,7 +194,11 @@ describe('AlertService', () => {
       'post-1',
       'Bắt quả tang ma túy',
       decision(['hot_keyword']),
-      nlp({ isRelevant: true, matchedKeywords: ['ma túy'], topKeywordPriority: 1 }),
+      nlp({
+        isRelevant: true,
+        matchedKeywords: ['ma túy'],
+        topKeywordPriority: 1,
+      }),
       slang(),
     );
     expect(r!.severity).toBe('critical');
@@ -231,7 +243,13 @@ describe('AlertService', () => {
   });
 
   it('gate không tín hiệu map được → null, không save', async () => {
-    const r = await service.createAlertFromGate('post-5', 't', decision([]), nlp(), slang());
+    const r = await service.createAlertFromGate(
+      'post-5',
+      't',
+      decision([]),
+      nlp(),
+      slang(),
+    );
     expect(r).toBeNull();
     expect(saveMock).not.toHaveBeenCalled();
   });

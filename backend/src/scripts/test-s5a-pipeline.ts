@@ -23,7 +23,9 @@ async function main() {
   });
 
   const processor = app.get(NlpProcessProcessor);
-  const postRepo = app.get<Repository<OsintPost>>(getRepositoryToken(OsintPost));
+  const postRepo = app.get<Repository<OsintPost>>(
+    getRepositoryToken(OsintPost),
+  );
   const nlpRepo = app.get<Repository<OsintPostNlp>>(
     getRepositoryToken(OsintPostNlp),
   );
@@ -44,7 +46,9 @@ async function main() {
     await app.close();
     return;
   }
-  console.log(`\nPlatform test: ${platform.name} (trust=${platform.trustLevel})\n`);
+  console.log(
+    `\nPlatform test: ${platform.name} (trust=${platform.trustLevel})\n`,
+  );
 
   const cases = [
     {
@@ -64,7 +68,10 @@ async function main() {
 
   for (const c of cases) {
     // dọn lần chạy trước nếu còn
-    await postRepo.delete({ platformId: platform.id, externalPostId: c.externalPostId });
+    await postRepo.delete({
+      platformId: platform.id,
+      externalPostId: c.externalPostId,
+    });
 
     const saved = await postRepo.save(
       postRepo.create({
@@ -92,7 +99,10 @@ async function main() {
     console.log(`${c.tag}`);
     console.log('  processing_status :', nlp?.processingStatus);
     console.log('  is_notable        :', nlp?.isNotable);
-    console.log('  notability_reasons:', JSON.stringify(nlp?.notabilityReasons));
+    console.log(
+      '  notability_reasons:',
+      JSON.stringify(nlp?.notabilityReasons),
+    );
     console.log('  gate_passed       :', nlp?.gatePassed);
     console.log('  credibility       :', nlp?.credibility);
     console.log('  signal_features   :', JSON.stringify(nlp?.signalFeatures));
@@ -108,8 +118,14 @@ async function main() {
       .where('source_ref_ids @> ARRAY[:id]::uuid[]', { id })
       .execute();
   }
-  await postRepo.delete({ platformId: platform.id, externalPostId: 's5a-smoke-notable' });
-  await postRepo.delete({ platformId: platform.id, externalPostId: 's5a-smoke-junk' });
+  await postRepo.delete({
+    platformId: platform.id,
+    externalPostId: 's5a-smoke-notable',
+  });
+  await postRepo.delete({
+    platformId: platform.id,
+    externalPostId: 's5a-smoke-junk',
+  });
   console.log('Đã dọn sạch dữ liệu test.\n');
 
   await app.close();

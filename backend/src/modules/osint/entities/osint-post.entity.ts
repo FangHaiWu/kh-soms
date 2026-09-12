@@ -108,7 +108,7 @@ export class OsintPost {
     nullable: true,
   })
   independentClusterId: string;
-  
+
   @Column('timestamptz', {
     name: 'crawled_at',
     default: () => 'NOW()',

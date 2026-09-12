@@ -17,16 +17,57 @@ export interface Indicator {
 
 // TLD chấp nhận cho domain TRẦN (không có http). Full-URL thì nhận mọi TLD.
 const BARE_TLDS = new Set([
-  'com', 'net', 'org', 'vn', 'info', 'biz', 'co', 'io', 'me', 'top', 'vip',
-  'xyz', 'cc', 'icu', 'online', 'site', 'live', 'app', 'club', 'shop', 'store',
-  'pro', 'bond', 'trading', 'link', 'click', 'fun', 'cfd', 'asia', 'one', 'tech',
-  'host', 'space', 'website', 'digital', 'finance', 'fund', 'capital', 'trade',
-  'markets', 'win',
+  'com',
+  'net',
+  'org',
+  'vn',
+  'info',
+  'biz',
+  'co',
+  'io',
+  'me',
+  'top',
+  'vip',
+  'xyz',
+  'cc',
+  'icu',
+  'online',
+  'site',
+  'live',
+  'app',
+  'club',
+  'shop',
+  'store',
+  'pro',
+  'bond',
+  'trading',
+  'link',
+  'click',
+  'fun',
+  'cfd',
+  'asia',
+  'one',
+  'tech',
+  'host',
+  'space',
+  'website',
+  'digital',
+  'finance',
+  'fund',
+  'capital',
+  'trade',
+  'markets',
+  'win',
 ]);
 
 // Nền tảng nhắn tin/MXH → coi là HANDLE (kênh dẫn dụ) thay vì URL thường
 const HANDLE_HOSTS = new Set([
-  't.me', 'zalo.me', 'fb.me', 'm.me', 'facebook.com', 'instagram.com',
+  't.me',
+  'zalo.me',
+  'fb.me',
+  'm.me',
+  'facebook.com',
+  'instagram.com',
 ]);
 
 /**
@@ -101,7 +142,11 @@ export class IndicatorExtractorService {
   private consumeCrypto(text: string, found: Indicator[]): string {
     let out = text;
     out = out.replace(/\b0x[a-fA-F0-9]{40}\b/g, (m) => {
-      found.push({ type: 'CRYPTO_WALLET', raw: m, normalized: m.toLowerCase() });
+      found.push({
+        type: 'CRYPTO_WALLET',
+        raw: m,
+        normalized: m.toLowerCase(),
+      });
       return ' '.repeat(m.length);
     });
     out = out.replace(

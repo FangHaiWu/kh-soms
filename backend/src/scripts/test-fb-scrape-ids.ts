@@ -32,18 +32,26 @@ async function main() {
   try {
     const account = await repo.findOneBy({ label });
     if (!account) {
-      console.error(`❌ Chưa có account "${label}". Chạy: npm run add:fb-account`);
+      console.error(
+        `❌ Chưa có account "${label}". Chạy: npm run add:fb-account`,
+      );
       exitCode = 1;
     } else {
       for (const t of TARGETS) {
         console.log(`\n=== ${t.kind}: ${t.url} ===`);
         const list = await collector.verifyScrapeIds(account, t.url);
         console.log(`→ thu ${list.length} post distinct. 3 mẫu đầu:`);
-        list.slice(0, 3).forEach((p, i) =>
-          console.log(`  [${i + 1}] id=${p.externalPostId.slice(0, 24)}  url=${p.postUrl}`),
-        );
+        list
+          .slice(0, 3)
+          .forEach((p, i) =>
+            console.log(
+              `  [${i + 1}] id=${p.externalPostId.slice(0, 24)}  url=${p.postUrl}`,
+            ),
+          );
         if (list.length === 0) {
-          console.warn('  ⚠️ KHÔNG thu được post nào — kiểm selector / session.');
+          console.warn(
+            '  ⚠️ KHÔNG thu được post nào — kiểm selector / session.',
+          );
           exitCode = 1;
         }
       }

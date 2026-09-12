@@ -51,7 +51,12 @@ describe('ActorAggregateJob', () => {
       },
     };
 
-    const job = new ActorAggregateJob(postRepo, actorRepo, statRepo, alertService);
+    const job = new ActorAggregateJob(
+      postRepo,
+      actorRepo,
+      statRepo,
+      alertService,
+    );
     const n = await job.run();
 
     expect(n).toBe(1);
@@ -72,7 +77,11 @@ describe('ActorAggregateJob', () => {
       authorName: null,
       createdAt: new Date(`2026-07-1${i}`),
       group: { name: 'Kênh X' },
-      nlp: { matchedCategories: ['lua-dao'], isNotable: true, indicators: null },
+      nlp: {
+        matchedCategories: ['lua-dao'],
+        isNotable: true,
+        indicators: null,
+      },
     }));
     const qb: any = {
       leftJoinAndSelect: () => qb,
@@ -81,14 +90,22 @@ describe('ActorAggregateJob', () => {
     };
     const postRepo: any = { createQueryBuilder: () => qb };
     const actorRepo: any = {
-      findOne: async () => ({ id: 'a-existing', actorType: 'group', actorKey: 'g1' }),
+      findOne: async () => ({
+        id: 'a-existing',
+        actorType: 'group',
+        actorKey: 'g1',
+      }),
       create: (x: any) => x,
       save: async (x: any) => x,
     };
     const statSaved: any[] = [];
     const statRepo: any = {
       // Stat đã tồn tại với is_repeat_offender=true từ lần chạy trước
-      findOne: async () => ({ actorId: 'a-existing', windowDays: 30, isRepeatOffender: true }),
+      findOne: async () => ({
+        actorId: 'a-existing',
+        windowDays: 30,
+        isRepeatOffender: true,
+      }),
       create: (x: any) => x,
       save: async (x: any) => {
         statSaved.push(x);
@@ -103,7 +120,12 @@ describe('ActorAggregateJob', () => {
       },
     };
 
-    const job = new ActorAggregateJob(postRepo, actorRepo, statRepo, alertService);
+    const job = new ActorAggregateJob(
+      postRepo,
+      actorRepo,
+      statRepo,
+      alertService,
+    );
     await job.run();
 
     expect(statSaved[0].isRepeatOffender).toBe(true);
@@ -153,7 +175,12 @@ describe('ActorAggregateJob', () => {
     };
 
     const alertService: any = { createSystemAlert: async () => null };
-    const job = new ActorAggregateJob(postRepo, actorRepo, statRepo, alertService);
+    const job = new ActorAggregateJob(
+      postRepo,
+      actorRepo,
+      statRepo,
+      alertService,
+    );
     const n = await job.run();
 
     expect(n).toBe(1); // post không group/author → chỉ actor fingerprint

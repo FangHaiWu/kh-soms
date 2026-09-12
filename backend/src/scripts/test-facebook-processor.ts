@@ -36,4 +36,3 @@ main().catch((err) => {
   // exit(1) de terminal/CI bao FAIL — script DoD phai phan anh dung loi, khong nuot
   process.exit(1);
 });
-  

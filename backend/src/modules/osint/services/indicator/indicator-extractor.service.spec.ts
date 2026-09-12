@@ -8,7 +8,10 @@ describe('IndicatorExtractorService', () => {
   });
 
   const norms = (text: string, type: string) =>
-    svc.extract(text).filter((i) => i.type === type).map((i) => i.normalized);
+    svc
+      .extract(text)
+      .filter((i) => i.type === type)
+      .map((i) => i.normalized);
 
   // ---- PHONE ----
   it('PHONE: bắt 0xxx / +84 / có . - space, chuẩn hóa về 0xxxxxxxxx', () => {
@@ -28,17 +31,21 @@ describe('IndicatorExtractorService', () => {
       '1234567890',
     ]);
     // Chuỗi số dài KHÔNG có cue → không nhận (tránh bắt ngày/mã đơn/giá)
-    expect(norms('đơn hàng 1234567890 giao hôm nay', 'BANK_ACCOUNT')).toEqual([]);
+    expect(norms('đơn hàng 1234567890 giao hôm nay', 'BANK_ACCOUNT')).toEqual(
+      [],
+    );
   });
 
   // ---- CRYPTO_WALLET ----
   it('CRYPTO_WALLET: bắt ví ETH (0x+40hex) và BTC', () => {
     const eth = '0x' + 'aB'.repeat(20); // 0x + 40 hex
-    expect(norms(`gửi về ${eth}`, 'CRYPTO_WALLET')).toEqual([eth.toLowerCase()]);
+    expect(norms(`gửi về ${eth}`, 'CRYPTO_WALLET')).toEqual([
+      eth.toLowerCase(),
+    ]);
     const btc = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
-    expect(svc.extract(`ví ${btc}`).some((i) => i.type === 'CRYPTO_WALLET')).toBe(
-      true,
-    );
+    expect(
+      svc.extract(`ví ${btc}`).some((i) => i.type === 'CRYPTO_WALLET'),
+    ).toBe(true);
   });
 
   // ---- URL / domain ----
@@ -66,12 +73,15 @@ describe('IndicatorExtractorService', () => {
     expect(svc.extract('kết bạn @scam_king_88').map((i) => i.type)).toContain(
       'HANDLE',
     );
-    expect(norms('vào nhóm t.me/DauTu4_0', 'HANDLE')).toEqual(['t.me/dautu4_0']);
+    expect(norms('vào nhóm t.me/DauTu4_0', 'HANDLE')).toEqual([
+      't.me/dautu4_0',
+    ]);
   });
 
   it('HANDLE: @ trong email KHÔNG bị bắt là handle', () => {
-    expect(svc.extract('lienhe@gmail.com').filter((i) => i.type === 'HANDLE'))
-      .toEqual([]);
+    expect(
+      svc.extract('lienhe@gmail.com').filter((i) => i.type === 'HANDLE'),
+    ).toEqual([]);
   });
 
   // ---- Chung ----

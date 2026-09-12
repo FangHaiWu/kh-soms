@@ -22,9 +22,33 @@ describe('NlpService', () => {
       updatedAt: new Date(),
     };
     findMock.mockResolvedValue([
-      { ...baseKeyword, id: '1', keyword: 'bắt', priority: 1, isActive: true, category: 'annt', createdAt: new Date() },
-      { ...baseKeyword, id: '2', keyword: 'giang hồ', priority: 2, isActive: true, category: 'annt', createdAt: new Date() },
-      { ...baseKeyword, id: '3', keyword: 'cướp', priority: 1, isActive: true, category: 'annt', createdAt: new Date() },
+      {
+        ...baseKeyword,
+        id: '1',
+        keyword: 'bắt',
+        priority: 1,
+        isActive: true,
+        category: 'annt',
+        createdAt: new Date(),
+      },
+      {
+        ...baseKeyword,
+        id: '2',
+        keyword: 'giang hồ',
+        priority: 2,
+        isActive: true,
+        category: 'annt',
+        createdAt: new Date(),
+      },
+      {
+        ...baseKeyword,
+        id: '3',
+        keyword: 'cướp',
+        priority: 1,
+        isActive: true,
+        category: 'annt',
+        createdAt: new Date(),
+      },
     ]);
 
     const module: TestingModule = await Test.createTestingModule({

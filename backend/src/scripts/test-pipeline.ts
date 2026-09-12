@@ -71,7 +71,9 @@ async function main() {
       );
     } else if (nlpResult.isRelevant || slangResult.hasSlang) {
       alertSkipped++;
-      console.log('   ⏭️  ALERT BỎ QUA: đã có trong 1h (dedup) hoặc không đủ điều kiện');
+      console.log(
+        '   ⏭️  ALERT BỎ QUA: đã có trong 1h (dedup) hoặc không đủ điều kiện',
+      );
     }
   }
 

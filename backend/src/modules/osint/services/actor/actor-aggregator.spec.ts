@@ -22,7 +22,12 @@ const post = (o: Partial<PostForActor>): PostForActor => ({
 describe('resolveActors', () => {
   it('có groupId + author → 2 actor (group + account)', () => {
     const r = resolveActors(
-      post({ groupId: 'g1', groupName: 'Kênh X', authorExternalId: 'u9', authorName: 'A' }),
+      post({
+        groupId: 'g1',
+        groupName: 'Kênh X',
+        authorExternalId: 'u9',
+        authorName: 'A',
+      }),
     );
     expect(r.map((a) => a.actorType).sort()).toEqual(['account', 'group']);
     expect(r.find((a) => a.actorType === 'group')!.actorKey).toBe('g1');
@@ -158,6 +163,8 @@ describe('aggregatePosts', () => {
 describe('isRepeatOffender', () => {
   it('đạt ngưỡng ở 1 category CNC → true', () => {
     expect(isRepeatOffender({ 'lua-dao': 3 }, 3)).toBe(true);
-    expect(isRepeatOffender({ 'lua-dao': 2, 'co-bac-ca-do': 2 }, 3)).toBe(false);
+    expect(isRepeatOffender({ 'lua-dao': 2, 'co-bac-ca-do': 2 }, 3)).toBe(
+      false,
+    );
   });
 });

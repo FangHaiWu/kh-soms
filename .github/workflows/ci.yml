@@ -1,0 +1,36 @@
+# CI tối thiểu: chặn code không build/không lint/gãy test lọt vào main.
+# Chỉ chạy phần backend — frontend chưa khởi tạo.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      # Lint KHÔNG kèm --fix (script `npm run lint` có --fix, sẽ giấu lỗi trong CI)
+      - name: Lint
+        run: npx eslint "{src,test}/**/*.ts"
+
+      - name: Typecheck + build
+        run: npm run build
+
+      # Toàn bộ test hiện tại là unit, không cần Postgres/Redis
+      - name: Test
+        run: npm test -- --ci

@@ -17,7 +17,11 @@ describe('PostIngestService (S5a slim)', () => {
   const commentSave = jest.fn((x: any) => Promise.resolve(x));
   const queueAdd = jest.fn<() => Promise<any>>().mockResolvedValue({});
 
-  const ctx: IngestContext = { platformId: 'pl1', crawlType: 'facebook', groupId: 'g1' };
+  const ctx: IngestContext = {
+    platformId: 'pl1',
+    crawlType: 'facebook',
+    groupId: 'g1',
+  };
   const raw: RawPost = {
     externalPostId: 'ext-1',
     content: 'một bài viết công khai về an ninh trật tự khu phố',
