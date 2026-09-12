@@ -160,23 +160,30 @@ Thay cho lộ trình Phase 1-4 theo tháng trong `INSTRUCTIONS_ANTT_KHANHHOA.md`
 
 ## Quy tắc OSINT — Chuẩn tuân thủ: PHÁP LUẬT VIỆT NAM
 
-> **Chủ trương (cập nhật 12/06/2026, chủ dự án quyết):** Chuẩn duy nhất là **pháp luật Việt Nam**. Điều khoản dịch vụ (ToS) và robots.txt của nền tảng KHÔNG phải luật VN → **được phép vượt**, chấp nhận rủi ro hợp đồng với nền tảng (khóa tài khoản, cease-and-desist). ⚠️ Đây là **quyết định kỹ thuật, cần pháp chế đơn vị phê duyệt trước khi vận hành thật**.
+> **Chủ trương (12/06/2026, chủ dự án quyết):** Chuẩn duy nhất là **pháp luật Việt Nam**. Điều khoản dịch vụ (ToS) và robots.txt của nền tảng KHÔNG phải luật VN → **được phép vượt**, chấp nhận rủi ro hợp đồng với nền tảng (khóa tài khoản, cease-and-desist). Đây là **quyết định kỹ thuật do chủ dự án chịu trách nhiệm**; 12/09/2026 chủ dự án quyết **không lập văn bản trình pháp chế riêng**, áp dụng thẳng theo luật mới nhất ghi dưới đây.
 
-> 🚨 **NỢ RÀ SOÁT PHÁP LÝ (ghi nhận 12/09/2026) — chưa đóng.** Mục này soạn 12/06/2026 khi căn cứ duy nhất là Nghị định 13/2023. Từ đó Việt Nam đã có thêm **hai đạo luật cấp Quốc hội** đứng trên nghị định: **Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15** (hiệu lực 01/01/2026) và **Luật An ninh mạng mới** (hiệu lực 01/07/2026). Toàn bộ phần thu thập Facebook được thiết kế và code **trước** khi hai luật này có hiệu lực. Điều đó không đồng nghĩa sai, nhưng **bắt buộc rà lại trước khi vận hành thật**. Mọi kết luận pháp lý phải do **pháp chế đơn vị** ra, không phải do đội kỹ thuật hay AI tự nhận định.
+> **Căn cứ pháp lý áp dụng (cập nhật 12/09/2026, chủ dự án quyết): LUẬT MỚI NHẤT.**
+> Mục này soạn 12/06/2026 khi căn cứ duy nhất là Nghị định 13/2023/NĐ-CP. Nay căn cứ chuyển lên hai đạo luật cấp Quốc hội:
+> - **Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15** — Quốc hội thông qua 26/6/2025, hiệu lực **01/01/2026**, 5 chương 39 điều. **Thay thế Nghị định 13/2023/NĐ-CP.**
+> - **Luật An ninh mạng số 116/2025/QH15** — hiệu lực **01/07/2026**, 8 chương 45 điều. Hợp nhất và **thay thế** Luật An ninh mạng 24/2018/QH14 + Luật An toàn thông tin mạng 86/2015/QH13 (cả hai hết hiệu lực).
+>
+> Khi tài liệu cũ trong repo còn viện dẫn NĐ13/2023 hay Luật ANM 2018 → **đọc theo luật mới ở trên**.
 
 ### BẮT BUỘC giữ — vì là LUẬT VN, KHÔNG nới được:
-- **Nghị định 13/2023/NĐ-CP:** xử lý dữ liệu cá nhân theo cơ sở "phục vụ ANTT của cơ quan có thẩm quyền" (Điều 17 — không cần đồng ý từng đối tượng). Phải **đúng mục đích** + **bảo mật dữ liệu**.
-- **On-premise — KHÔNG đẩy PII đối tượng ra cloud/bên thứ 3** (Apify, Bright Data, social-listening nước ngoài…). Vừa NĐ13 vừa an ninh nội bộ.
+- **Luật BVDLCN 91/2025/QH15 — Điều 19:** xử lý dữ liệu cá nhân **không cần sự đồng ý** của chủ thể trong các trường hợp gồm *phòng, chống tội phạm và vi phạm pháp luật; nguy cơ đe dọa an ninh quốc gia* và *phục vụ hoạt động của cơ quan nhà nước theo quy định pháp luật* — đúng cơ sở KH-SOMS đang dùng. **Kèm nghĩa vụ:** Điều 19 khoản 2 buộc phải **thiết lập cơ chế giám sát** (quy trình xử lý DLCN + xác định trách nhiệm của cơ quan) — đây chính là lý do audit log và quy trình dưới đây là BẮT BUỘC, không phải tùy chọn.
+- **Luật BVDLCN 91/2025/QH15 — Điều 3 (nguyên tắc):** thu thập phải **đúng phạm vi, đúng mục đích cụ thể, rõ ràng**. Dữ liệu thu cho mục đích ANTT không được dùng sang mục đích khác.
+- **Luật BVDLCN 91/2025/QH15 — Điều 7 (hành vi bị cấm):** cấm **mua bán dữ liệu cá nhân**, chiếm đoạt/làm lộ DLCN, xử lý trái pháp luật (chế tài tới 3 tỷ đồng; chuyển DLCN ra nước ngoài trái quy định phạt tới 5% doanh thu năm trước — Điều 8). Hai mặt với dự án: (a) đây là **căn cứ nghiệp vụ** của category `mua-ban-dlcn`; (b) chính KH-SOMS cũng chịu ràng buộc — PII bóc từ bài rao bán chỉ được lưu **làm bằng chứng**, tuyệt đối không phát tán, không chuyển ra ngoài.
+- **On-premise — KHÔNG đẩy PII đối tượng ra cloud/bên thứ 3** (Apify, Bright Data, social-listening nước ngoài…). Vừa là yêu cầu Luật 91/2025 (bảo mật dữ liệu + hạn chế chuyển ra nước ngoài), vừa là an ninh nội bộ.
 - **Lằn ranh Điều 289 BLHS (xâm nhập trái phép):** chỉ thu thập ở **không gian công khai/cộng đồng**. ⛔ KHÔNG truy cập nội dung sau **mật khẩu/quyền riêng tư của một cá nhân cụ thể** (tài khoản riêng, tin nhắn riêng, group bí mật). Được dùng **tài khoản công cụ của hệ thống** để xem nội dung **công khai** mà nền tảng bắt đăng nhập mới hiển thị — vì đó là dùng credential của CHÍNH MÌNH, không vượt mật khẩu của người khác.
 - **AI chỉ HỖ TRỢ** ra quyết định — không tự động ra quyết định ảnh hưởng quyền con người.
 - **Mọi truy vấn đối tượng phải ghi audit log.**
 - **Ranh giới chấm điểm chủ thể:** `osint_actor_stat` là **đếm minh bạch hành vi đăng bài công khai** trên danh tính online (bao nhiêu bài, category nào, trong cửa sổ bao nhiêu ngày) — KHÁC với "risk scoring dự đoán khả năng phạm tội của một cá nhân". Giữ đúng ranh giới này: công thức minh bạch, ngưỡng ghi rõ trong cấu hình, có audit, và **người duyệt quyết định cuối**. Nối actor ↔ hồ sơ người thật CHỈ ở Zone B.
 
-### ĐƯỢC PHÉP — nới so với bản cũ, vì không phải luật VN — ⏳ CHỜ RÀ LẠI theo 2 luật mới:
-- ⏳ **Đăng nhập bằng tài khoản công cụ** để truy cập nội dung **công khai** bị login-wall (FB group/page công khai…). Credential mã hóa AES-256 trong DB.
-- ⏳ **Kỹ thuật giảm bị chặn:** account rotation, randomize delay/viewport/UA, ẩn dấu hiệu automation, proxy/IP rotation. Chấp nhận rủi ro ToS + khóa account.
+### ĐƯỢC PHÉP — vì ToS nền tảng không phải luật VN:
+- ✅ **Đăng nhập bằng tài khoản công cụ** để truy cập nội dung **công khai** bị login-wall (FB group/page công khai…). Credential mã hóa AES-256 trong DB. Vẫn nằm trong lằn ranh Điều 289 BLHS: dùng credential của CHÍNH MÌNH, không vượt mật khẩu của người khác.
+- ✅ **Kỹ thuật giảm bị chặn:** account rotation, randomize delay/viewport/UA, ẩn dấu hiệu automation, proxy/IP rotation. Chấp nhận rủi ro hợp đồng với nền tảng (khóa tài khoản, cease-and-desist) — rủi ro ToS, không phải rủi ro hình sự.
 
-Hai mục trên **vẫn đang dùng trong code** (Sprint 4) nhưng phải nằm trong danh mục trình pháp chế, cùng với việc **lưu PII trích từ bài rao bán dữ liệu** (số điện thoại, STK, ví crypto trong `osint_post_nlp.indicators`) — thu làm bằng chứng, không phát tán, và thuộc phạm vi Luật 91/2025.
+**Khi chạm tới các phần chưa dùng đến, đọc lại toàn văn luật thay vì suy đoán:** hồ sơ đánh giá tác động xử lý DLCN (ai lập, nộp đâu), danh mục **dữ liệu cá nhân nhạy cảm**, và điều kiện chuyển DLCN ra nước ngoài trong Luật 91/2025; danh mục hành vi bị nghiêm cấm trên không gian mạng trong Luật ANM 116/2025. Dự án hiện **on-premise, không chuyển dữ liệu ra nước ngoài** nên chưa chạm nhóm quy định này.
 
 ### KHUYẾN NGHỊ giữ — OPSEC nghiệp vụ, không bắt buộc:
 - UA không lộ danh tính cơ quan (OPSEC).
