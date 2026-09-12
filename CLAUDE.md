@@ -2,6 +2,16 @@
 
 Hệ thống phần mềm hỗ trợ bảo đảm an ninh, trật tự tỉnh Khánh Hòa (sau sáp nhập với Ninh Thuận từ 01/7/2025). Phục vụ lực lượng Công an tỉnh Khánh Hòa.
 
+## Phạm vi giai đoạn hiện tại (chốt 12/09/2026)
+
+Tài liệu gốc thiết kế 9 module, OSINT xếp thứ 9 "bổ sung". **Thực tế đã khác và văn bản này ghi nhận đúng thực tế:**
+
+- **Mục tiêu giai đoạn này:** OSINT phục vụ an ninh mạng & tội phạm công nghệ cao (CNC) → **phát hiện bất thường và cảnh báo sớm theo địa bàn**. `osint/` là module **lõi**, không phải bổ sung.
+- **KHÔNG cam kết "dự báo tội phạm"** kiểu ARIMA/LSTM ở giai đoạn này. Dữ liệu vụ việc lịch sử do công an nhập hiện bằng 0, và OSINT không thay thế được. Thứ làm được thật là *phát hiện bất thường + cảnh báo sớm điểm nóng dư luận/tội phạm mạng*. Mô hình chuỗi thời gian chỉ bật khi đã tích lũy ≥ 6–12 tháng dữ liệu.
+- **Hoãn tường minh** (ngoài phạm vi, không phải quên): `subjects/`, `reports/`, `intelligence/`, `users/` (đầy đủ), camera AI, mobile app, chatbot, tích hợp CSDL quốc gia.
+
+Bối cảnh và cơ sở của quyết định: `docs/2026-07-27-de-an-danh-gia-dinh-huong-phat-trien.docx`.
+
 ## Stack công nghệ
 
 - **Frontend:** React.js, TypeScript, Zustand, React Query, Recharts, Leaflet.js, Ant Design
@@ -14,18 +24,18 @@ Hệ thống phần mềm hỗ trợ bảo đảm an ninh, trật tự tỉnh Kh
 ```
 src/
 ├── modules/
-│   ├── auth/          # JWT + RBAC/ABAC
-│   ├── users/         # Quản lý người dùng, phân quyền
-│   ├── subjects/      # Quản lý đối tượng + OSINT cá nhân
-│   ├── incidents/     # Vụ việc, sự kiện ANTT
-│   ├── intelligence/  # Thu thập, xử lý thông tin tình báo
-│   ├── osint/         # OSINT Media: crawl báo chí + MXH
-│   ├── analytics/     # Thống kê, phân tích, dự báo
-│   ├── prediction/    # Mô hình dự báo tội phạm (ARIMA, LSTM, RF)
-│   ├── geography/     # Bản đồ, quản lý địa bàn (Leaflet + PostGIS)
-│   ├── reports/       # Báo cáo tự động (PDF, Excel, Word, PPT)
-│   ├── notifications/ # Push notification, WebSocket alert
-│   └── audit/         # Nhật ký thao tác toàn hệ thống
+│   ├── osint/         # [LÕI] Thu thập + pipeline NLP/Gate/trust + actor CNC
+│   ├── geography/     # [S6] Địa bàn 65 xã/phường, PostGIS, geo-tagging bài viết
+│   ├── analytics/     # [S7] Baseline + phát hiện bất thường + cảnh báo 4 mức
+│   ├── auth/          # [S8] TỐI THIỂU: JWT + role. RBAC/ABAC đầy đủ để sau
+│   ├── audit/         # [S8] TỐI THIỂU: log truy vấn dữ liệu OSINT/PII
+│   ├── notifications/ # [S8] Kênh phát cảnh báo: WebSocket + Telegram/email
+│   ├── incidents/     # [S11+] Event store (loại × địa bàn × thời điểm) nuôi dự báo
+│   ├── prediction/    # [S11+] Chuỗi thời gian — CHỈ khi đã đủ dữ liệu vụ việc
+│   ├── users/         # [HOÃN] Quản lý người dùng đầy đủ
+│   ├── subjects/      # [HOÃN] Quản lý đối tượng + OSINT cá nhân (Zone B)
+│   ├── intelligence/  # [HOÃN] Thu thập, xử lý thông tin tình báo
+│   └── reports/       # [HOÃN] Báo cáo tự động (PDF, Excel, Word, PPT)
 ├── common/
 │   ├── guards/        # AuthGuard, RolesGuard
 │   ├── interceptors/  # Logging, response transform
@@ -119,12 +129,24 @@ Docs: /api/docs (Swagger)
 Auth: Bearer Token (JWT)
 ```
 
-## Các module theo lộ trình phát triển
+## Lộ trình phát triển (chốt 12/09/2026)
 
-**Phase 1 (Tháng 1-3):** Auth, Users, Subjects CRUD, Incidents cơ bản, Dashboard  
-**Phase 2 (Tháng 4-6):** Search nâng cao, Graph liên kết, Map, OSINT Media cơ bản, Cảnh báo  
-**Phase 3 (Tháng 7-9):** OSINT MXH, Subject enrichment, Hotspot, Dự báo AI, Chatbot  
-**Phase 4 (Tháng 10-12):** Camera AI, Mobile app, API mở, Deepfake detection
+Thay cho lộ trình Phase 1-4 theo tháng trong `INSTRUCTIONS_ANTT_KHANHHOA.md` §V — bản đó viết cho phạm vi 9 module đầy đủ, không còn khớp phạm vi hiện tại.
+
+| GĐ | Nội dung | Trạng thái |
+|----|----------|-----------|
+| S1-S5 | Pipeline OSINT: thu thập (RSS/Telegram/Facebook) → Normalize → NLP → Trust → Gate; NER tiếng Việt | ✅ DONE |
+| CNC L1 | Category xuyên pipeline + 129 keyword/8 nhóm + IndicatorExtractor (phone/STK/ví/domain/handle) | ✅ DONE |
+| CNC L2 | `osint_actor` + 4 loại định danh (account/group/domain/vân tay chỉ dấu) + job gộp + alert tái phạm | ✅ DONE |
+| **S0** | Đóng việc dở + vệ sinh nền (`.env.example`, CI, README, lint) + rà pháp lý | 🔄 đang làm |
+| **S6** | **Địa bàn hóa** — PostGIS + gazetteer 65 xã/phường + geo-tagger gán bài về địa bàn | ⏳ tiếp theo |
+| **S7** | Baseline + phát hiện bất thường (EWMA/Poisson/z-score) → cảnh báo 4 mức theo INSTRUCTIONS §4.4 | ⏳ |
+| **S8** | Auth/audit tối thiểu + kênh phát cảnh báo (WebSocket, Telegram/email, ack/phân công) | ⏳ |
+| **S9** | Dashboard React đọc-only: bản đồ nhiệt, xu hướng, feed cảnh báo, bảng actor tái phạm | ⏳ |
+| **S10** | CNC L3 — LLM phân loại ngữ nghĩa (kích động/xuyên tạc), chỉ chạy trên bài qua Gate (~5-10%) | ⏳ cần GPU |
+| **S11+** | Incidents event store + dự báo chuỗi thời gian thật | ⏳ cần dữ liệu vụ việc |
+
+**Nút thắt số 1 = S6.** Post và alert hiện không biết thuộc xã/phường nào → mọi thứ "theo địa bàn" (bản đồ nhiệt, cảnh báo theo địa bàn, so sánh xu hướng giữa các xã) đều chặn ở đây.
 
 ## Người dùng hệ thống
 
@@ -140,16 +162,21 @@ Auth: Bearer Token (JWT)
 
 > **Chủ trương (cập nhật 12/06/2026, chủ dự án quyết):** Chuẩn duy nhất là **pháp luật Việt Nam**. Điều khoản dịch vụ (ToS) và robots.txt của nền tảng KHÔNG phải luật VN → **được phép vượt**, chấp nhận rủi ro hợp đồng với nền tảng (khóa tài khoản, cease-and-desist). ⚠️ Đây là **quyết định kỹ thuật, cần pháp chế đơn vị phê duyệt trước khi vận hành thật**.
 
+> 🚨 **NỢ RÀ SOÁT PHÁP LÝ (ghi nhận 12/09/2026) — chưa đóng.** Mục này soạn 12/06/2026 khi căn cứ duy nhất là Nghị định 13/2023. Từ đó Việt Nam đã có thêm **hai đạo luật cấp Quốc hội** đứng trên nghị định: **Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15** (hiệu lực 01/01/2026) và **Luật An ninh mạng mới** (hiệu lực 01/07/2026). Toàn bộ phần thu thập Facebook được thiết kế và code **trước** khi hai luật này có hiệu lực. Điều đó không đồng nghĩa sai, nhưng **bắt buộc rà lại trước khi vận hành thật**. Mọi kết luận pháp lý phải do **pháp chế đơn vị** ra, không phải do đội kỹ thuật hay AI tự nhận định.
+
 ### BẮT BUỘC giữ — vì là LUẬT VN, KHÔNG nới được:
 - **Nghị định 13/2023/NĐ-CP:** xử lý dữ liệu cá nhân theo cơ sở "phục vụ ANTT của cơ quan có thẩm quyền" (Điều 17 — không cần đồng ý từng đối tượng). Phải **đúng mục đích** + **bảo mật dữ liệu**.
 - **On-premise — KHÔNG đẩy PII đối tượng ra cloud/bên thứ 3** (Apify, Bright Data, social-listening nước ngoài…). Vừa NĐ13 vừa an ninh nội bộ.
 - **Lằn ranh Điều 289 BLHS (xâm nhập trái phép):** chỉ thu thập ở **không gian công khai/cộng đồng**. ⛔ KHÔNG truy cập nội dung sau **mật khẩu/quyền riêng tư của một cá nhân cụ thể** (tài khoản riêng, tin nhắn riêng, group bí mật). Được dùng **tài khoản công cụ của hệ thống** để xem nội dung **công khai** mà nền tảng bắt đăng nhập mới hiển thị — vì đó là dùng credential của CHÍNH MÌNH, không vượt mật khẩu của người khác.
 - **AI chỉ HỖ TRỢ** ra quyết định — không tự động ra quyết định ảnh hưởng quyền con người.
 - **Mọi truy vấn đối tượng phải ghi audit log.**
+- **Ranh giới chấm điểm chủ thể:** `osint_actor_stat` là **đếm minh bạch hành vi đăng bài công khai** trên danh tính online (bao nhiêu bài, category nào, trong cửa sổ bao nhiêu ngày) — KHÁC với "risk scoring dự đoán khả năng phạm tội của một cá nhân". Giữ đúng ranh giới này: công thức minh bạch, ngưỡng ghi rõ trong cấu hình, có audit, và **người duyệt quyết định cuối**. Nối actor ↔ hồ sơ người thật CHỈ ở Zone B.
 
-### ĐƯỢC PHÉP — nới so với bản cũ, vì không phải luật VN:
-- ✅ **Đăng nhập bằng tài khoản công cụ** để truy cập nội dung **công khai** bị login-wall (FB group/page công khai…). Credential mã hóa AES-256 trong DB.
-- ✅ **Kỹ thuật giảm bị chặn:** account rotation, randomize delay/viewport/UA, ẩn dấu hiệu automation, proxy/IP rotation. Chấp nhận rủi ro ToS + khóa account.
+### ĐƯỢC PHÉP — nới so với bản cũ, vì không phải luật VN — ⏳ CHỜ RÀ LẠI theo 2 luật mới:
+- ⏳ **Đăng nhập bằng tài khoản công cụ** để truy cập nội dung **công khai** bị login-wall (FB group/page công khai…). Credential mã hóa AES-256 trong DB.
+- ⏳ **Kỹ thuật giảm bị chặn:** account rotation, randomize delay/viewport/UA, ẩn dấu hiệu automation, proxy/IP rotation. Chấp nhận rủi ro ToS + khóa account.
+
+Hai mục trên **vẫn đang dùng trong code** (Sprint 4) nhưng phải nằm trong danh mục trình pháp chế, cùng với việc **lưu PII trích từ bài rao bán dữ liệu** (số điện thoại, STK, ví crypto trong `osint_post_nlp.indicators`) — thu làm bằng chứng, không phát tán, và thuộc phạm vi Luật 91/2025.
 
 ### KHUYẾN NGHỊ giữ — OPSEC nghiệp vụ, không bắt buộc:
 - UA không lộ danh tính cơ quan (OPSEC).
@@ -157,4 +184,6 @@ Auth: Bearer Token (JWT)
 
 ## Nguồn tài liệu
 
-- File yêu cầu đầy đủ: `INSTRUCTIONS_ANTT_KHANHHOA.md`
+- File yêu cầu đầy đủ: `INSTRUCTIONS_ANTT_KHANHHOA.md` — ⚠️ viết cho phạm vi 9 module đầy đủ. Khi mâu thuẫn với mục "Phạm vi giai đoạn hiện tại" ở đầu file này, **lấy CLAUDE.md làm chuẩn**.
+- Đánh giá hiện trạng + cơ sở của quyết định thu hẹp phạm vi: `docs/2026-07-27-de-an-danh-gia-dinh-huong-phat-trien.docx`
+- Spec + plan từng hạng mục: `docs/superpowers/specs/` và `docs/superpowers/plans/`
