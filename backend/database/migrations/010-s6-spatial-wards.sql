@@ -55,5 +55,7 @@ ALTER TABLE osint.osint_post_nlp
   ADD COLUMN IF NOT EXISTS location_candidates jsonb;
 CREATE INDEX IF NOT EXISTS idx_post_nlp_ward ON osint.osint_post_nlp(ward_id);
 
-ALTER TABLE osint.osint_alert
+-- Tên bảng đúng là osint_alerts (số nhiều) — xem 000-initial-osint-tables.sql
+-- và @Entity({ name: 'osint_alerts' }) trong osint-alert.entity.ts
+ALTER TABLE osint.osint_alerts
   ADD COLUMN IF NOT EXISTS ward_id uuid REFERENCES spatial.wards(id);

@@ -31,7 +31,9 @@ export class Ward {
   @Column('varchar', { length: 20, nullable: true })
   region: string | null;
 
-  // Polygon từ OSM; NULL được vì nhánh import là độc lập, không chặn việc gán địa bàn
+  // Polygon từ OSM; NULL được vì nhánh import là độc lập, không chặn việc gán địa bàn.
+  // select: false — polygon nặng, không truy vấn nghiệp vụ nào cần mặc định load nó;
+  // chỉ script vẽ bản đồ mới cần .addSelect('ward.geom') khi thực sự dùng.
   @Column({ type: 'geometry', nullable: true, select: false })
   geom: unknown | null;
 
