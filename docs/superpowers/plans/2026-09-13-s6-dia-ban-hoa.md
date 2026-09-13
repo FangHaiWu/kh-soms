@@ -53,8 +53,8 @@ Tách `ward-matcher.ts` (thuần) khỏi `ward-matcher.service.ts` (Nest) đúng
 ```bash
 curl -s -X POST https://overpass-api.de/api/interpreter \
   --data-urlencode 'data=[out:json][timeout:90];
-area["name"="Khánh Hòa"]["admin_level"="4"]->.kh;
-relation(area.kh)["boundary"="administrative"]["admin_level"~"^(8|9)$"];
+rel(1887959);map_to_area->.kh;
+relation(area.kh)["boundary"="administrative"]["admin_level"="6"];
 out tags;' | python3 -c "
 import json,sys,collections
 d=json.load(sys.stdin)['elements']
@@ -73,6 +73,12 @@ Ghi kết luận vào một trong ba mức, rồi báo lại cho chủ dự án:
 - **Đủ 65** → Task 11 làm được như kế hoạch.
 - **Thiếu một phần** → Task 11 vẫn chạy, `geom` NULL cho phần thiếu; ghi rõ thiếu bao nhiêu.
 - **Vẫn là ranh giới cũ (trước 01/7/2025)** → **KHÔNG import**. Polygon sai còn tệ hơn không có polygon, vì bản đồ sẽ vẽ ra ranh giới không tồn tại. Báo lại để chủ dự án quyết mua GeoJSON hay hoãn.
+
+**KẾT QUẢ ĐÃ CHẠY (13/09/2026):** OSM có **đủ 65/65 đơn vị mới**, tên khớp tuyệt đối với
+`khanh-hoa-wards.ts` (0 thiếu, 0 thừa). Quan hệ cấp tỉnh duy nhất là `rel(1887959)` "Tỉnh Khánh Hòa"
+— Ninh Thuận đã biến mất khỏi OSM, tức OSM đã cập nhật sau sáp nhập. Cấp xã nằm ở
+**`admin_level=6`** (không phải 8/9 — bỏ cấp huyện nên cấp xã dời lên 6; level 9 là tổ dân phố).
+→ **Task 11 làm được như kế hoạch.**
 
 Task 0 không chặn Task 1–10. Kết quả chỉ quyết định số phận Task 11.
 
@@ -1767,9 +1773,12 @@ import { AppModule } from '../app.module';
 import { Ward } from '../modules/geography/entities/ward.entity';
 import { normalizeAlias } from '../modules/geography/services/ward-matcher';
 
+// admin_level=6 là cấp xã/phường của Khánh Hòa trên OSM — KHÔNG phải 8/9.
+// Bỏ cấp huyện sau sáp nhập nên cấp xã dời lên 6; level 9 là tổ dân phố, không dùng.
+// rel(1887959) = quan hệ "Tỉnh Khánh Hòa"; tra theo id thay vì theo tên cho chắc.
 const QUERY = `[out:json][timeout:180];
-area["name"="Khánh Hòa"]["admin_level"="4"]->.kh;
-relation(area.kh)["boundary"="administrative"]["admin_level"~"^(8|9)$"];
+rel(1887959);map_to_area->.kh;
+relation(area.kh)["boundary"="administrative"]["admin_level"="6"];
 out geom;`;
 
 async function main() {
