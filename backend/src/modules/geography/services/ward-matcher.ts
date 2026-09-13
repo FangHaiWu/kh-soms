@@ -88,18 +88,25 @@ export function hasCue(tokens: Token[], tokenIndex: number): boolean {
   return CUE_WORDS.has(tokens[tokenIndex - 1].norm);
 }
 
-// 33 tỉnh/thành còn lại sau sáp nhập 2025 (không kể Khánh Hòa).
-// Ninh Thuận KHÔNG có trong danh sách: đã là một phần của Khánh Hòa mới.
+// Tên tỉnh/thành KHÁC Khánh Hòa — địa danh nằm cùng câu với một trong các tên này
+// thì không phải địa bàn của ta.
+// Gồm CẢ tên hiện hành (33) LẪN tên cũ đã biến mất sau sáp nhập 01/7/2025 (28),
+// vì báo chí và mạng xã hội vẫn dùng tên cũ hàng ngày.
+// ⚠️ Ninh Thuận CỐ Ý không có trong danh sách: đã là một phần của Khánh Hòa mới.
 const OTHER_PROVINCES = [
+  // 33 tỉnh/thành hiện hành (34 trừ Khánh Hòa)
   'ha noi', 'hue', 'hai phong', 'da nang', 'ho chi minh', 'can tho',
   'lai chau', 'dien bien', 'son la', 'lang son', 'quang ninh', 'thanh hoa',
   'nghe an', 'ha tinh', 'tuyen quang', 'lao cai', 'thai nguyen', 'phu tho',
   'bac ninh', 'hung yen', 'ninh binh', 'quang tri', 'quang ngai', 'gia lai',
   'lam dong', 'dak lak', 'dong nai', 'tay ninh', 'vinh long', 'dong thap',
   'an giang', 'ca mau', 'cao bang',
-  // Tên tỉnh CŨ trước sáp nhập vẫn được báo chí dùng phổ biến dù đã nhập
-  // vào tỉnh mới (vd Bình Dương → Hồ Chí Minh) — giữ để guard vẫn nhận diện.
-  'binh duong',
+  // 28 tên tỉnh cũ đã biến mất khỏi cấp tỉnh (29 trừ Ninh Thuận)
+  'ha giang', 'yen bai', 'bac kan', 'vinh phuc', 'hoa binh', 'bac giang',
+  'thai binh', 'hai duong', 'ha nam', 'nam dinh', 'quang binh', 'quang nam',
+  'kon tum', 'binh dinh', 'phu yen', 'dak nong', 'binh thuan', 'binh phuoc',
+  'ba ria vung tau', 'binh duong', 'long an', 'tien giang', 'ben tre',
+  'tra vinh', 'hau giang', 'soc trang', 'bac lieu', 'kien giang',
 ];
 
 /**

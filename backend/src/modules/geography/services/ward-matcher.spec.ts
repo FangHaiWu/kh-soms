@@ -114,4 +114,13 @@ describe('guard tỉnh khác', () => {
     const hits = findHits('Tin từ Bình Dương. Vụ việc tại Diên Khánh.', CUE_INDEX);
     expect(hits).toHaveLength(1);
   });
+
+  // Ràng buộc quan trọng nhất của guard: Ninh Thuận đã là một phần của
+  // Khánh Hòa mới (sáp nhập 01/7/2025) nên KHÔNG được coi là "tỉnh khác".
+  // Nếu sau này ai đó "sửa cho đủ 34 tỉnh" mà lỡ thêm nhầm Ninh Thuận vào
+  // OTHER_PROVINCES, test này phải đỏ ngay để chặn lại.
+  it('KHÔNG bỏ khi tỉnh nhắc tới là Ninh Thuận — đã sáp nhập vào Khánh Hòa', () => {
+    const hits = findHits('tại Diên Khánh, Ninh Thuận', CUE_INDEX);
+    expect(hits).toHaveLength(1);
+  });
 });
