@@ -25,7 +25,7 @@
 
 | File | Trách nhiệm |
 |---|---|
-| `backend/database/migrations/010-s6-spatial-wards.sql` | Schema `spatial`, 3 bảng, 4 cột thêm vào `osint_post_nlp` + `osint_alert` |
+| `backend/database/migrations/010-s6-spatial-wards.sql` | Schema `spatial`, 3 bảng, 4 cột thêm vào `osint_post_nlp` + `osint_alerts` |
 | `backend/src/modules/geography/entities/ward.entity.ts` | Entity `spatial.wards` |
 | `backend/src/modules/geography/entities/ward-alias.entity.ts` | Entity `spatial.ward_aliases` |
 | `backend/src/modules/geography/entities/unmatched-location.entity.ts` | Entity `spatial.unmatched_locations` |
@@ -157,7 +157,7 @@ ALTER TABLE osint.osint_post_nlp
   ADD COLUMN IF NOT EXISTS location_candidates jsonb;
 CREATE INDEX IF NOT EXISTS idx_post_nlp_ward ON osint.osint_post_nlp(ward_id);
 
-ALTER TABLE osint.osint_alert
+ALTER TABLE osint.osint_alerts
   ADD COLUMN IF NOT EXISTS ward_id uuid REFERENCES spatial.wards(id);
 ```
 
@@ -1441,7 +1441,7 @@ Thêm `private wardMatcher: WardMatcherService` vào constructor. Chèn **bướ
         }
 ```
 
-Nếu processor chưa có `alertRepo`, thay bằng cách truyền `wardId` vào `createAlertFromGate` như tham số thêm và để `AlertService` gán trước khi save — chọn cách nào ít sửa hơn, miễn `osint_alert.ward_id` được điền.
+Nếu processor chưa có `alertRepo`, thay bằng cách truyền `wardId` vào `createAlertFromGate` như tham số thêm và để `AlertService` gán trước khi save — chọn cách nào ít sửa hơn, miễn `osint_alerts.ward_id` được điền.
 
 Trong `osint.module.ts`: thêm `GeographyModule` vào `imports`.
 

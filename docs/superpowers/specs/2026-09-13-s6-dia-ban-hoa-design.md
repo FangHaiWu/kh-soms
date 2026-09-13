@@ -93,7 +93,7 @@ ALTER TABLE osint.osint_post_nlp
   ADD COLUMN location_candidates jsonb;
 CREATE INDEX idx_post_nlp_ward ON osint.osint_post_nlp(ward_id);
 
-ALTER TABLE osint.osint_alert ADD COLUMN ward_id uuid REFERENCES spatial.wards(id);
+ALTER TABLE osint.osint_alerts ADD COLUMN ward_id uuid REFERENCES spatial.wards(id);
 ```
 
 **`UNIQUE (alias_norm, ward_id)` chứ không phải `UNIQUE (alias_norm)`** — cố ý. Một alias
