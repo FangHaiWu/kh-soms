@@ -77,3 +77,41 @@ describe('findHits', () => {
     expect(text.slice(hits[1].start, hits[1].end)).toBe('Suối Hiệp');
   });
 });
+
+// Index riêng cho cue-gating: 'Tân Định' trùng cụm tiếng Việt thông thường
+// ("tân định cư") nên requiresCue=true; 'Diên Khánh' không mơ hồ nên false.
+const CUE_INDEX = buildIndex([
+  { wardId: 'w-td', alias: 'Tân Định', requiresCue: true },
+  { wardId: 'w-dk', alias: 'Diên Khánh', requiresCue: false },
+]);
+
+describe('cue-gating', () => {
+  it('alias trùng từ thông thường KHÔNG khớp khi thiếu cue', () => {
+    expect(findHits('anh ấy tân định cư ở đây', CUE_INDEX)).toHaveLength(0);
+  });
+
+  it('khớp khi có cue "xã"', () => {
+    const hits = findHits('bắt tại xã Tân Định', CUE_INDEX);
+    expect(hits[0].entries[0].wardId).toBe('w-td');
+  });
+
+  it('khớp khi có cue "tại"', () => {
+    expect(findHits('xảy ra tại Tân Định', CUE_INDEX)).toHaveLength(1);
+  });
+});
+
+describe('guard tỉnh khác', () => {
+  it('bỏ qua địa danh khi cùng câu có tên tỉnh khác', () => {
+    expect(findHits('Công an xã Tân Định, Bình Dương triệt phá', CUE_INDEX)).toHaveLength(0);
+  });
+
+  it('KHÔNG bỏ khi tỉnh nhắc tới là Khánh Hòa', () => {
+    const hits = findHits('tại Diên Khánh, Khánh Hòa', CUE_INDEX);
+    expect(hits).toHaveLength(1);
+  });
+
+  it('câu khác không ảnh hưởng nhau', () => {
+    const hits = findHits('Tin từ Bình Dương. Vụ việc tại Diên Khánh.', CUE_INDEX);
+    expect(hits).toHaveLength(1);
+  });
+});

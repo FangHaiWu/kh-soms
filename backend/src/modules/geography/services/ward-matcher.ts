@@ -74,6 +74,54 @@ export function buildIndex(entries: AliasEntry[]): AliasIndex {
   return index;
 }
 
+// Tiền tố báo hiệu phía sau là địa danh. "đặc khu"/"thị trấn" là 2 token nên dò cả cặp.
+const CUE_WORDS = new Set([
+  'xa', 'phuong', 'khu', 'tran', 'thon', 'tai', 'o', 'thuoc', 'dia', 'ban',
+]);
+
+/**
+ * Có cue ngay trước cụm không? Chỉ xét 1 token liền trước — cue xa hơn
+ * thường thuộc về danh từ khác ("công an huyện X điều tra vụ Tân Định").
+ */
+export function hasCue(tokens: Token[], tokenIndex: number): boolean {
+  if (tokenIndex === 0) return false;
+  return CUE_WORDS.has(tokens[tokenIndex - 1].norm);
+}
+
+// 33 tỉnh/thành còn lại sau sáp nhập 2025 (không kể Khánh Hòa).
+// Ninh Thuận KHÔNG có trong danh sách: đã là một phần của Khánh Hòa mới.
+const OTHER_PROVINCES = [
+  'ha noi', 'hue', 'hai phong', 'da nang', 'ho chi minh', 'can tho',
+  'lai chau', 'dien bien', 'son la', 'lang son', 'quang ninh', 'thanh hoa',
+  'nghe an', 'ha tinh', 'tuyen quang', 'lao cai', 'thai nguyen', 'phu tho',
+  'bac ninh', 'hung yen', 'ninh binh', 'quang tri', 'quang ngai', 'gia lai',
+  'lam dong', 'dak lak', 'dong nai', 'tay ninh', 'vinh long', 'dong thap',
+  'an giang', 'ca mau', 'cao bang',
+  // Tên tỉnh CŨ trước sáp nhập vẫn được báo chí dùng phổ biến dù đã nhập
+  // vào tỉnh mới (vd Bình Dương → Hồ Chí Minh) — giữ để guard vẫn nhận diện.
+  'binh duong',
+];
+
+/**
+ * Địa danh nằm trong câu có nhắc tỉnh/thành KHÁC thì không phải địa bàn của ta.
+ *
+ * Thiếu guard này thì mọi tin toàn quốc có tên trùng ("xã Tân Định, Bình Dương")
+ * sẽ đổ vào bản đồ Khánh Hòa.
+ */
+export function inOtherProvinceSentence(text: string, hitStart: number): boolean {
+  // Cắt đúng câu chứa hit: lùi/tiến tới dấu kết câu gần nhất
+  const before = text.lastIndexOf('.', hitStart);
+  const nlBefore = text.lastIndexOf('\n', hitStart);
+  const from = Math.max(before, nlBefore) + 1;
+  let to = text.length;
+  for (const ch of ['.', '\n', '!', '?']) {
+    const p = text.indexOf(ch, hitStart);
+    if (p !== -1 && p < to) to = p;
+  }
+  const sentence = normalizeAlias(text.slice(from, to));
+  return OTHER_PROVINCES.some((p) => sentence.includes(p));
+}
+
 /**
  * Quét text tìm mọi alias khớp, ưu tiên CỤM DÀI NHẤT.
  *
@@ -94,13 +142,20 @@ export function findHits(text: string, index: AliasIndex): Hit[] {
         .join(' ');
       const entries = index.get(key);
       if (entries) {
-        hits.push({
-          aliasNorm: key,
-          entries,
-          start: tokens[i].start,
-          end: tokens[i + n - 1].end,
-          tokenIndex: i,
-        });
+        // Alias mơ hồ (trùng từ thông thường) chỉ nhận khi có tiền tố báo hiệu
+        const needCue = entries.every((e) => e.requiresCue);
+        const ok =
+          (!needCue || hasCue(tokens, i)) &&
+          !inOtherProvinceSentence(text, tokens[i].start);
+        if (ok) {
+          hits.push({
+            aliasNorm: key,
+            entries,
+            start: tokens[i].start,
+            end: tokens[i + n - 1].end,
+            tokenIndex: i,
+          });
+        }
         i += n; // nhảy qua cả cụm đã khớp — không cho khớp lồng nhau, cụm dài nhất thắng
         matched = true;
         break;
