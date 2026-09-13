@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull'; // BullModule dung de khoi tao queue
 import { ScheduleModule } from '@nestjs/schedule'; // ScheduleModule dung de khoi tao scheduler
 import { OsintModule } from './modules/osint/osint.module';
+import { GeographyModule } from './modules/geography/geography.module';
 @Module({
   imports: [
     // 1. Config - Phai load dau tien, isGlobal de su dung moi noi
@@ -38,6 +39,7 @@ import { OsintModule } from './modules/osint/osint.module';
     // 4. Schedule -cho cron job tu dong crawl
     ScheduleModule.forRoot(),
 
+    GeographyModule,
     OsintModule,
   ],
   controllers: [],
