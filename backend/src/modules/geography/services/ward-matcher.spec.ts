@@ -124,3 +124,40 @@ describe('guard tỉnh khác', () => {
     expect(hits).toHaveLength(1);
   });
 });
+
+// Index riêng cho fix round 2: các alias đụng cue cũ ('tran' trong họ "Trần",
+// và 2 trường hợp cần bigram "thị trấn"/"đặc khu").
+const CUE_INDEX_BIGRAM = buildIndex([
+  { wardId: 'w-ba', alias: 'Bảo An', requiresCue: true },
+  { wardId: 'w-vg', alias: 'Vạn Giã', requiresCue: true },
+  { wardId: 'w-ts', alias: 'Trường Sa', requiresCue: true },
+]);
+
+describe('cue-gating — họ "Trần" không được coi là cue, bigram thị trấn/đặc khu', () => {
+  // Test quan trọng nhất của cả Task 4: cue cũ 'tran' (bỏ dấu từ cả "Trần" lẫn
+  // "trấn") từng khiến MỌI người tên "Trần ..." bị khớp nhầm vào ward trùng
+  // tên đệm/tên. Hồ sơ ANTT đầy "Trần Văn X" nên đây là gán sai quy mô lớn.
+  it('họ "Trần" KHÔNG bị coi là cue — "Trần Bảo An" không khớp nhầm ward Bảo An', () => {
+    expect(findHits('đối tượng Trần Bảo An khai nhận', CUE_INDEX_BIGRAM)).toHaveLength(0);
+  });
+
+  it('bigram "thị trấn" thay thế đúng chức năng của cue "tran" vừa bỏ', () => {
+    const hits = findHits('thị trấn Vạn Giã', CUE_INDEX_BIGRAM);
+    expect(hits[0].entries[0].wardId).toBe('w-vg');
+  });
+
+  it('bigram "đặc khu" thay thế đúng chức năng của cue "khu" vừa bỏ', () => {
+    const hits = findHits('đặc khu Trường Sa', CUE_INDEX_BIGRAM);
+    expect(hits[0].entries[0].wardId).toBe('w-ts');
+  });
+});
+
+describe('guard tỉnh khác — cắt câu đối xứng cả 2 phía', () => {
+  // Trước fix, phần lùi về trước chỉ dò '.'/'\n' còn phần tiến tới sau dò cả
+  // '!'/'?' → câu trước kết bằng "!" bị nối nhầm vào câu sau, guard ăn lan
+  // sang câu không liên quan.
+  it('câu trước kết bằng "!" không nuốt câu sau — Diên Khánh vẫn khớp được', () => {
+    const hits = findHits('Bắt giữ tại Bình Dương! Xảy ra tại Diên Khánh.', CUE_INDEX);
+    expect(hits).toHaveLength(1);
+  });
+});

@@ -74,18 +74,33 @@ export function buildIndex(entries: AliasEntry[]): AliasIndex {
   return index;
 }
 
-// Tiền tố báo hiệu phía sau là địa danh. "đặc khu"/"thị trấn" là 2 token nên dò cả cặp.
+// Tiền tố báo hiệu phía sau là địa danh — cue đơn-từ.
+// CỐ Ý KHÔNG có 'tran' (đụng họ "Trần" — họ phổ biến nhất VN, "Trần Bảo An"
+// sẽ khớp nhầm ward "Bảo An") và KHÔNG có 'khu' đơn lẻ (đụng "khu vực", "khu
+// phố" — quá nhiễu). Hai trường hợp "thị trấn"/"đặc khu" xử lý riêng bằng
+// bigram bên dưới.
 const CUE_WORDS = new Set([
-  'xa', 'phuong', 'khu', 'tran', 'thon', 'tai', 'o', 'thuoc', 'dia', 'ban',
+  'xa', 'phuong', 'thon', 'tai', 'o', 'thuoc', 'ban',
 ]);
 
+// Cue 2 token — cụm này ghép lại mới mang nghĩa tiền tố địa danh, tách rời
+// từng từ ("thi", "tran") không phải cue vì tự nó không báo hiệu gì.
+const CUE_BIGRAMS = new Set(['thi tran', 'dac khu']);
+
 /**
- * Có cue ngay trước cụm không? Chỉ xét 1 token liền trước — cue xa hơn
- * thường thuộc về danh từ khác ("công an huyện X điều tra vụ Tân Định").
+ * Có cue ngay trước cụm không? Xét 1 token liền trước (cue đơn) và 2 token
+ * liền trước (cue ghép "thị trấn"/"đặc khu") — cue xa hơn thường thuộc về
+ * danh từ khác ("công an huyện X điều tra vụ Tân Định").
  */
 export function hasCue(tokens: Token[], tokenIndex: number): boolean {
   if (tokenIndex === 0) return false;
-  return CUE_WORDS.has(tokens[tokenIndex - 1].norm);
+  if (CUE_WORDS.has(tokens[tokenIndex - 1].norm)) return true;
+  // Dò thêm bigram khi có đủ 2 token phía trước
+  if (tokenIndex >= 2) {
+    const bigram = `${tokens[tokenIndex - 2].norm} ${tokens[tokenIndex - 1].norm}`;
+    if (CUE_BIGRAMS.has(bigram)) return true;
+  }
+  return false;
 }
 
 // Tên tỉnh/thành KHÁC Khánh Hòa — địa danh nằm cùng câu với một trong các tên này
@@ -116,10 +131,15 @@ const OTHER_PROVINCES = [
  * sẽ đổ vào bản đồ Khánh Hòa.
  */
 export function inOtherProvinceSentence(text: string, hitStart: number): boolean {
-  // Cắt đúng câu chứa hit: lùi/tiến tới dấu kết câu gần nhất
-  const before = text.lastIndexOf('.', hitStart);
-  const nlBefore = text.lastIndexOf('\n', hitStart);
-  const from = Math.max(before, nlBefore) + 1;
+  // Cắt đúng câu chứa hit: lùi/tiến tới dấu kết câu gần nhất.
+  // Phải dò ĐỦ 4 dấu kết câu ('.', '\n', '!', '?') ở CẢ hai phía — thiếu '!'/'?'
+  // khi lùi về trước sẽ nối nhầm câu trước vào câu hiện tại (vd câu trước kết
+  // bằng '!' thì lùi chỉ thấy '.' xa hơn, from tính sai, guard ăn nhầm sang câu bên cạnh).
+  let from = 0;
+  for (const ch of ['.', '\n', '!', '?']) {
+    const p = text.lastIndexOf(ch, hitStart);
+    if (p !== -1 && p + 1 > from) from = p + 1;
+  }
   let to = text.length;
   for (const ch of ['.', '\n', '!', '?']) {
     const p = text.indexOf(ch, hitStart);
