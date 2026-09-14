@@ -1,4 +1,4 @@
-import { buildIndex, findHits, normalizeAlias, tokenizeVi } from './ward-matcher';
+import { buildIndex, findHits, matchWard, normalizeAlias, tokenizeVi } from './ward-matcher';
 
 // Index nhỏ dựng tay — test thuần, không đụng DB
 const INDEX = buildIndex([
@@ -159,5 +159,70 @@ describe('guard tỉnh khác — cắt câu đối xứng cả 2 phía', () => {
   it('câu trước kết bằng "!" không nuốt câu sau — Diên Khánh vẫn khớp được', () => {
     const hits = findHits('Bắt giữ tại Bình Dương! Xảy ra tại Diên Khánh.', CUE_INDEX);
     expect(hits).toHaveLength(1);
+  });
+});
+
+// Index riêng cho Task 5 — thang vai trò P1-P4.
+// "Ninh Hải" trỏ 2 ward — thế mơ hồ có thật trong NQ 1667 (xã mới Ninh Thuận
+// vs phường cũ Ninh Hòa, cách nhau >100km, KHÔNG được phá bằng alias_type).
+const RES_INDEX = buildIndex([
+  { wardId: 'w-dk', alias: 'Diên Khánh', requiresCue: false },
+  { wardId: 'w-sh', alias: 'Suối Hiệp', requiresCue: false },
+  { wardId: 'w-nh-nt', alias: 'Ninh Hải', requiresCue: true },
+  { wardId: 'w-dnh', alias: 'Ninh Hải', requiresCue: true },
+]);
+
+describe('matchWard — thang vai trò', () => {
+  it('P2 "tại" thắng P3 "Công an xã"', () => {
+    const r = matchWard(
+      'Công an xã Diên Khánh bắt nhóm đối tượng tại xã Suối Hiệp',
+      RES_INDEX,
+    );
+    expect(r.wardId).toBe('w-sh');
+    expect(r.reason).toBe('matched');
+  });
+
+  it('P4 nơi cư trú bị loại, lấy nơi gây án', () => {
+    const r = matchWard('Đối tượng trú tại xã Diên Khánh, gây án tại xã Suối Hiệp', RES_INDEX);
+    expect(r.wardId).toBe('w-sh');
+  });
+
+  it('alias trỏ 2 ward → mơ hồ, KHÔNG gán nhưng giữ location_text', () => {
+    const r = matchWard('Vụ việc xảy ra tại Ninh Hải', RES_INDEX);
+    expect(r.wardId).toBeNull();
+    expect(r.reason).toBe('ambiguous');
+    expect(r.locationText).toBe('Ninh Hải');
+  });
+
+  it('không khớp gì → none, mọi trường null', () => {
+    const r = matchWard('Hôm nay trời đẹp', RES_INDEX);
+    expect(r).toEqual({
+      wardId: null, locationText: null, matchedAlias: null,
+      candidates: [], reason: 'none',
+    });
+  });
+
+  it('chỉ có P4 → không gán (nơi cư trú không phải nơi xảy ra)', () => {
+    const r = matchWard('Đối tượng thường trú tại xã Diên Khánh', RES_INDEX);
+    expect(r.wardId).toBeNull();
+    expect(r.reason).toBe('none');
+  });
+
+  it('candidates giữ mọi địa danh kèm vai trò để tính lại sau', () => {
+    const r = matchWard('Công an xã Diên Khánh bắt tại xã Suối Hiệp', RES_INDEX);
+    expect(r.candidates.map((c) => c.role).sort()).toEqual(['P2', 'P3']);
+  });
+
+  // Phát hiện khi viết pattern P3: 'tram' (bỏ dấu từ "trạm") trùng tên riêng
+  // "Trâm" — tên nữ rất phổ biến trong hồ sơ ANTT. Nếu còn 'tram' trong
+  // P3_PATTERNS, "Nguyễn Văn Trâm" đứng trước "tại xã Suối Hiệp" sẽ bị đọc
+  // nhầm "Trâm" thành cue "trạm" → Suối Hiệp bị gán sai P3, hòa với "Công an
+  // xã Diên Khánh" (P3 thật) rồi chọn nhầm Diên Khánh (xuất hiện sớm hơn).
+  it('tên riêng "Trâm" không bị đọc nhầm thành cue "trạm" (P3)', () => {
+    const r = matchWard(
+      'Công an xã Diên Khánh bắt Nguyễn Văn Trâm tại xã Suối Hiệp',
+      RES_INDEX,
+    );
+    expect(r.wardId).toBe('w-sh');
   });
 });
