@@ -11,12 +11,7 @@ import { AppModule } from '../app.module';
 import { Ward } from '../modules/geography/entities/ward.entity';
 import { WardAlias } from '../modules/geography/entities/ward-alias.entity';
 import { WARDS } from '../modules/geography/data/khanh-hoa-wards';
-import { normalizeAlias } from '../modules/geography/services/ward-matcher';
-
-// Bỏ tiền tố loại để lấy tên gọi thường ngày: "Phường Nha Trang" → "Nha Trang"
-function stripPrefix(name: string): string {
-  return name.replace(/^(Phường|Xã|Đặc khu|Thị trấn)\s+/i, '');
-}
+import { buildAliasRows, stripPrefix } from '../modules/geography/data/build-ward-aliases';
 
 async function main() {
   const app = await NestFactory.createApplicationContext(AppModule, {
@@ -41,34 +36,11 @@ async function main() {
     // Ghi lại toàn bộ alias của ward này để script chạy lại không nhân đôi
     await aliasRepo.delete({ wardId: ward.id });
 
-    const rows: Partial<WardAlias>[] = [];
-    // Alias official: cả tên đầy đủ lẫn tên rút gọn
-    for (const a of [seed.name, ward.shortName]) {
-      rows.push({
-        wardId: ward.id,
-        alias: a,
-        aliasNorm: normalizeAlias(a),
-        aliasType: 'official',
-        requiresCue: seed.requiresCue ?? false,
-      });
-    }
-    // Alias tên cũ: luôn requires_cue — tên cũ mơ hồ hơn tên hiện hành
-    for (const old of seed.oldNames) {
-      rows.push({
-        wardId: ward.id,
-        alias: old,
-        aliasNorm: normalizeAlias(old),
-        aliasType: 'old_ward',
-        requiresCue: true,
-      });
-    }
-    // Khử trùng trong cùng 1 ward (vd short_name trùng 1 old name) — UNIQUE(alias_norm, ward_id)
-    const seen = new Set<string>();
-    const deduped = rows.filter((r) =>
-      seen.has(r.aliasNorm!) ? false : (seen.add(r.aliasNorm!), true),
-    );
-    await aliasRepo.save(deduped.map((r) => aliasRepo.create(r)));
-    nAlias += deduped.length;
+    // Logic dựng + khử trùng alias đã tách sang hàm thuần có test riêng —
+    // script này chỉ còn lo phần I/O với DB (gắn wardId rồi lưu).
+    const rows = buildAliasRows(seed).map((r) => ({ ...r, wardId: ward.id }));
+    await aliasRepo.save(rows.map((r) => aliasRepo.create(r)));
+    nAlias += rows.length;
   }
 
   const total = await wardRepo.count();

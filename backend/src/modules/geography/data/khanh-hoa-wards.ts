@@ -134,16 +134,19 @@ export const WARDS: WardSeed[] = [
     oldNames: ['Phước Chiến', 'Công Hải'] },
   { name: 'Xã Ninh Sơn', type: 'xa', region: 'ninh_thuan_cu',
     oldNames: ['Tân Sơn', 'Quảng Sơn'] },
+  // requiresCue: sau normalizeAlias ra "lam son", trùng dạng chuẩn hóa của
+  // "Lam Sơn" (khởi nghĩa Lam Sơn) — địa danh lịch sử xuất hiện dày trong tin cả nước
   { name: 'Xã Lâm Sơn', type: 'xa', region: 'ninh_thuan_cu',
-    oldNames: ['Lương Sơn', 'Lâm Sơn'] },
+    oldNames: ['Lương Sơn', 'Lâm Sơn'], requiresCue: true },
   { name: 'Xã Anh Dũng', type: 'xa', region: 'ninh_thuan_cu',
     oldNames: ['Ma Nới', 'Hòa Sơn'], requiresCue: true },
   { name: 'Xã Mỹ Sơn', type: 'xa', region: 'ninh_thuan_cu',
     oldNames: ['Phước Trung', 'Mỹ Sơn'], requiresCue: true },
   { name: 'Xã Bác Ái Đông', type: 'xa', region: 'ninh_thuan_cu',
     oldNames: ['Phước Đại', 'Phước Thành'] },
+  // requiresCue: "bác ái" là từ tiếng Việt thông dụng (hội bác ái, tinh thần bác ái)
   { name: 'Xã Bác Ái', type: 'xa', region: 'ninh_thuan_cu',
-    oldNames: ['Phước Tiến', 'Phước Thắng', 'Phước Chính'] },
+    oldNames: ['Phước Tiến', 'Phước Thắng', 'Phước Chính'], requiresCue: true },
   { name: 'Xã Bác Ái Tây', type: 'xa', region: 'ninh_thuan_cu',
     oldNames: ['Phước Hòa', 'Phước Tân', 'Phước Bình'] },
 
