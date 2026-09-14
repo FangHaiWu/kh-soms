@@ -251,4 +251,32 @@ describe('matchWard — thang vai trò', () => {
     expect(r.reason).toBe('none');
     expect(r.wardId).toBeNull();
   });
+
+  // Fix round 2 — chiều NGƯỢC của test round-1 ở trên (rất quan trọng):
+  // ở đó "Ninh Hải" mơ hồ nằm ở hạng CAO NHẤT (P1) nên phải trả 'ambiguous'.
+  // Ở đây "Ninh Hải" mơ hồ chỉ ở hạng THẤP (P2), còn "Suối Hiệp" rõ ràng lại
+  // ở hạng CAO hơn (P1) — hạng cao nhất KHÔNG có mơ hồ nên phải chọn được,
+  // trả 'matched'. Hai test này BẮT BUỘC ra hai kết quả khác nhau: nếu ai
+  // "đơn giản hoá" hàm chọn thành "hễ text có bất kỳ hit mơ hồ nào là trả
+  // ambiguous" (bỏ qua việc chỉ xét mơ hồ TRONG nhóm hạng cao nhất) thì test
+  // này sẽ đỏ ngay — đây là kiểu rút gọn sai dễ mắc phải nhất.
+  it('mơ hồ ở hạng THẤP không cản hạng CAO rõ ràng — vẫn matched (đối xứng với test mơ hồ-ở-hạng-cao)', () => {
+    const r = matchWard(
+      'Đối tượng khai từng ở Ninh Hải, xảy ra tại xã Suối Hiệp',
+      RES_INDEX,
+    );
+    expect(r.wardId).toBe('w-sh');
+    expect(r.reason).toBe('matched');
+  });
+
+  // Fix round 2 — phá hòa bằng số lần nhắc, nhánh có từ bản gốc Task 5
+  // nhưng chưa từng có test nào chạm tới: 2 ward cùng hạng rõ ràng (P2),
+  // một ward được nhắc 2 lần phải thắng ward chỉ nhắc 1 lần.
+  it('phá hòa bằng số lần nhắc — ward nhắc 2 lần thắng ward nhắc 1 lần cùng hạng', () => {
+    const r = matchWard(
+      'Vụ việc tại xã Suối Hiệp. Rồi lại tại xã Suối Hiệp lần nữa. Còn tại xã Diên Khánh cũng được nhắc.',
+      RES_INDEX,
+    );
+    expect(r.wardId).toBe('w-sh');
+  });
 });
