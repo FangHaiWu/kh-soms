@@ -185,6 +185,7 @@ describe('matchWard — thang vai trò', () => {
   it('P4 nơi cư trú bị loại, lấy nơi gây án', () => {
     const r = matchWard('Đối tượng trú tại xã Diên Khánh, gây án tại xã Suối Hiệp', RES_INDEX);
     expect(r.wardId).toBe('w-sh');
+    expect(r.reason).toBe('matched');
   });
 
   it('alias trỏ 2 ward → mơ hồ, KHÔNG gán nhưng giữ location_text', () => {
@@ -224,5 +225,30 @@ describe('matchWard — thang vai trò', () => {
       RES_INDEX,
     );
     expect(r.wardId).toBe('w-sh');
+  });
+
+  // Fix round 1 — Critical: ứng viên mơ hồ ở hạng vai trò CAO NHẤT (P1) không
+  // được phép "thua" một ứng viên rõ ràng nhưng vai trò yếu hơn (P2). Trước
+  // fix, thuật toán chỉ xét mơ hồ khi KHÔNG còn ứng viên rõ ràng nào, nên
+  // "Ninh Hải" (P1, mơ hồ) bị loại thẳng và "Suối Hiệp" (P2, chỉ là nơi đưa
+  // về trụ sở) thắng — gán CHẮC NỊCH vào nơi KHÔNG xảy ra vụ việc. Test này
+  // phải đỏ nếu ai hoàn nguyên về logic cũ (xét mơ hồ chỉ khi usable rỗng).
+  it('mơ hồ ở hạng cao nhất (P1) không được tụt xuống chọn hạng thấp hơn dù nó rõ ràng', () => {
+    const r = matchWard(
+      'Vụ việc xảy ra tại Ninh Hải, sau đó đưa về trụ sở ở xã Suối Hiệp',
+      RES_INDEX,
+    );
+    expect(r.wardId).toBeNull();
+    expect(r.reason).toBe('ambiguous');
+    expect(r.locationText).toBe('Ninh Hải');
+  });
+
+  // Fix round 1 — Important: hit mơ hồ mang role P4 (nơi cư trú) phải trả
+  // 'none', không phải 'ambiguous' — P4 bị loại TRƯỚC khi xét mơ hồ, nên
+  // "mơ hồ" của một nơi không phải nơi xảy ra là vô nghĩa, không đáng báo.
+  it('hit mơ hồ nhưng mang role P4 (nơi cư trú) → none, không phải ambiguous', () => {
+    const r = matchWard('Đối tượng trú tại Ninh Hải', RES_INDEX);
+    expect(r.reason).toBe('none');
+    expect(r.wardId).toBeNull();
   });
 });

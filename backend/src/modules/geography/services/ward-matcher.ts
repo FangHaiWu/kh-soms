@@ -217,7 +217,16 @@ const P1_PATTERNS = ['xay ra tai', 'xay ra o', 'tren dia ban', 'thuoc dia ban'];
 // đọc nhầm "Trâm" thành cue "trạm" và gán sai P3, hòa với P3 thật của ward
 // khác rồi chọn nhầm theo "xuất hiện sớm nhất". Cùng lớp lỗi với 'tran' đã bỏ
 // khỏi CUE_WORDS phía trên.
-const P3_PATTERNS = ['cong an', 'ubnd', 'uy ban', 'don bien phong', 'ban chqs', 'vks', 'toa an'];
+// 'uy ban' đơn lẻ CỐ Ý viết đủ thành 'uy ban nhan dan': "Đại úy Bân" bỏ dấu
+// cũng ra "uy ban" — cùng lớp lỗi với 'tram'/"Trâm" ở trên. Viết tắt "UBND"
+// đã có pattern 'ubnd' lo riêng nên không mất recall.
+const P3_PATTERNS = ['cong an', 'ubnd', 'uy ban nhan dan', 'don bien phong', 'ban chqs', 'vks', 'toa an'];
+// 'ngu tai' CỐ Ý GIỮ dù "ngủ tại" (chỗ ngủ tạm) cũng bỏ dấu trùng "ngụ tại"
+// (nơi cư trú, cách viết rất phổ biến trong hồ sơ công an). Xét hướng hỏng:
+// bỏ pattern → "ngụ tại X" tụt xuống P2 → X bị gán NHẦM thành nơi xảy ra vụ
+// việc, sai một cách hệ thống trên rất nhiều bài. Giữ pattern → "ngủ tại X"
+// bị loại khỏi ứng viên → chỉ BỎ SÓT một bài hiếm gặp. Gán sai tệ hơn bỏ sót
+// (nguyên tắc dự án) → giữ nguyên, không "tối ưu" đi.
 const P4_PATTERNS = ['tru tai', 'ngu tai', 'thuong tru', 'que o', 'que quan'];
 
 /**
@@ -241,10 +250,17 @@ export function classifyRole(tokens: Token[], tokenIndex: number): LocationRole 
 const ROLE_RANK: Record<LocationRole, number> = { P1: 3, P2: 2, P3: 1, P4: 0 };
 
 /**
- * Khớp text → 1 ward. Flow: findHits → gắn vai trò → loại P4 → chọn theo thang.
+ * Khớp text → 1 ward.
  *
- * Quy tắc chọn (spec §Phân giải): hạng vai trò cao nhất → nhắc nhiều lần nhất
- * → xuất hiện sớm nhất. Chuỗi này luôn cho ra kết quả khi có ứng viên hợp lệ.
+ * Flow: findHits → gắn vai trò (1 lần/hit) → loại P4 → tìm hạng cao nhất
+ * trong số còn lại → NẾU hạng cao nhất có hit mơ hồ thì báo "không biết"
+ * ngay (không tụt xuống hạng thấp hơn dù nó rõ ràng) → còn lại đều rõ ràng
+ * thì phá hòa: nhắc nhiều lần nhất → xuất hiện sớm nhất.
+ *
+ * Vì sao mơ hồ ở hạng cao nhất KHÔNG được phép tụt xuống chọn hạng thấp hơn:
+ * "xảy ra tại Ninh Hải (mơ hồ, P1), sau đó đưa về trụ sở ở xã Suối Hiệp (P2)"
+ * — nếu bỏ qua "Ninh Hải" vì mơ hồ rồi chọn "Suối Hiệp" vì nó rõ, hệ thống sẽ
+ * gán CHẮC NỊCH vào nơi KHÔNG xảy ra vụ việc. Gán sai tệ hơn không gán.
  */
 export function matchWard(text: string, index: AliasIndex): WardMatchResult {
   const tokens = tokenizeVi(text);
@@ -255,53 +271,61 @@ export function matchWard(text: string, index: AliasIndex): WardMatchResult {
   };
   if (hits.length === 0) return empty;
 
+  // Tính role MỘT LẦN cho mỗi hit — dùng chung cho candidates lẫn phân giải,
+  // tránh gọi classifyRole lặp lại nhiều lần cho cùng một hit.
+  const roles = hits.map((h) => classifyRole(tokens, h.tokenIndex));
+
+  // candidates giữ MỌI địa danh bắt được kèm vai trò, kể cả cái bị loại bên
+  // dưới — để sau này đổi luật chọn mà không phải quét lại toàn bộ dữ liệu.
   const candidates: LocationCandidate[] = [];
-  for (const h of hits) {
-    const role = classifyRole(tokens, h.tokenIndex);
+  hits.forEach((h, i) => {
     for (const e of h.entries) {
-      candidates.push({ alias: e.alias, wardId: e.wardId, role, offset: h.start });
+      candidates.push({ alias: e.alias, wardId: e.wardId, role: roles[i], offset: h.start });
     }
+  });
+
+  // Loại toàn bộ P4 (nơi cư trú) TRƯỚC KHI xét gì khác — kể cả hit mơ hồ
+  // mang role P4 cũng bị loại thẳng, không được coi là "ambiguous": nơi cư
+  // trú không phải ứng viên nơi xảy ra, mơ hồ hay không cũng vô nghĩa.
+  const remaining = hits
+    .map((h, i) => ({ h, role: roles[i] }))
+    .filter((x) => x.role !== 'P4');
+  if (remaining.length === 0) return { ...empty, candidates };
+
+  // Hạng vai trò cao nhất còn lại quyết định "tầng" phân giải — chỉ xét
+  // trong tầng này, không để tầng thấp hơn (dù rõ ràng) chen vào.
+  const topRank = Math.max(...remaining.map((x) => ROLE_RANK[x.role]));
+  const topGroup = remaining.filter((x) => ROLE_RANK[x.role] === topRank);
+
+  // Tín hiệu MẠNH NHẤT mà không phân giải được (alias trỏ ≥2 ward) thì phải
+  // báo "không biết" ngay, không được tụt xuống chọn tín hiệu yếu hơn dù nó
+  // rõ ràng hơn. alias_type KHÔNG được dùng để phá thế mơ hồ này: "Ninh Hải"
+  // là xã mới ở Ninh Thuận VÀ phường cũ của Ninh Hòa, cách nhau >100km.
+  const ambiguous = topGroup.find((x) => x.h.entries.length > 1);
+  if (ambiguous) {
+    return {
+      wardId: null,
+      locationText: text.slice(ambiguous.h.start, ambiguous.h.end),
+      matchedAlias: ambiguous.h.entries[0].alias,
+      candidates,
+      reason: 'ambiguous',
+    };
   }
 
-  // Alias trỏ ≥2 ward = mơ hồ. alias_type KHÔNG được dùng để phá thế này:
-  // "Ninh Hải" là xã mới ở Ninh Thuận VÀ phường cũ của Ninh Hòa, cách nhau >100km.
-  const usable = hits.filter(
-    (h) => h.entries.length === 1 && classifyRole(tokens, h.tokenIndex) !== 'P4',
-  );
-  if (usable.length === 0) {
-    const ambiguous = hits.find((h) => h.entries.length > 1);
-    if (ambiguous) {
-      return {
-        wardId: null,
-        locationText: text.slice(ambiguous.start, ambiguous.end),
-        matchedAlias: ambiguous.entries[0].alias,
-        candidates,
-        reason: 'ambiguous',
-      };
-    }
-    // Chỉ còn P4 (nơi cư trú) → không phải nơi xảy ra, không gán
-    return { ...empty, candidates };
-  }
-
-  // Gom theo ward để đếm số lần nhắc
-  const byWard = new Map<string, { rank: number; count: number; first: Hit }>();
-  for (const h of usable) {
-    const wardId = h.entries[0].wardId;
-    const rank = ROLE_RANK[classifyRole(tokens, h.tokenIndex)];
+  // Cả nhóm hạng cao nhất đều rõ ràng (entries.length === 1) → phá hòa: nhắc
+  // nhiều lần nhất → xuất hiện sớm nhất. topGroup giữ đúng thứ tự xuất hiện
+  // trong text (findHits quét trái→phải) nên "first" chính là hit đầu tiên
+  // gặp cho mỗi ward, không cần so sánh lại offset.
+  const byWard = new Map<string, { count: number; first: Hit }>();
+  for (const x of topGroup) {
+    const wardId = x.h.entries[0].wardId;
     const cur = byWard.get(wardId);
-    if (!cur) byWard.set(wardId, { rank, count: 1, first: h });
-    else {
-      cur.count++;
-      if (rank > cur.rank) {
-        cur.rank = rank;
-        cur.first = h; // giữ lần nhắc có vai trò mạnh nhất để cắt location_text
-      }
-    }
+    if (!cur) byWard.set(wardId, { count: 1, first: x.h });
+    else cur.count++;
   }
 
   const [wardId, best] = [...byWard.entries()].sort(
     (a, b) =>
-      b[1].rank - a[1].rank || // hạng vai trò cao nhất
       b[1].count - a[1].count || // nhắc nhiều lần nhất
       a[1].first.start - b[1].first.start, // xuất hiện sớm nhất
   )[0];
