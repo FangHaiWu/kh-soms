@@ -855,9 +855,11 @@ Thêm vào `ward-matcher.ts`:
 
 ```typescript
 // Tiền tố báo hiệu phía sau là địa danh. "đặc khu"/"thị trấn" là 2 token nên dò cả cặp.
-const CUE_WORDS = new Set([
-  'xa', 'phuong', 'khu', 'tran', 'thon', 'tai', 'o', 'thuoc', 'dia', 'ban',
-]);
+const CUE_WORDS = new Set(['xa', 'phuong', 'thon', 'tai', 'o', 'thuoc', 'dia', 'ban']);
+// Cue 2 token. BẮT BUỘC tách khỏi cue đơn-từ: bỏ dấu làm "trấn" (thị trấn) đụng
+// nguyên vào họ "Trần" — họ phổ biến nhất VN — nên "Trần Bảo An" từng khớp nhầm
+// thành xã Bảo An. Hồ sơ ANTT đầy "Trần Văn X" nên đây là gán sai quy mô lớn.
+const CUE_BIGRAMS = new Set(['thi tran', 'dac khu']);
 
 /**
  * Có cue ngay trước cụm không? Chỉ xét 1 token liền trước — cue xa hơn
@@ -865,11 +867,19 @@ const CUE_WORDS = new Set([
  */
 export function hasCue(tokens: Token[], tokenIndex: number): boolean {
   if (tokenIndex === 0) return false;
-  return CUE_WORDS.has(tokens[tokenIndex - 1].norm);
+  if (CUE_WORDS.has(tokens[tokenIndex - 1].norm)) return true;
+  // "thị trấn X" / "đặc khu X": cue nằm ở 2 token, không thể bắt bằng từ đơn
+  if (tokenIndex >= 2) {
+    const bigram = `${tokens[tokenIndex - 2].norm} ${tokens[tokenIndex - 1].norm}`;
+    return CUE_BIGRAMS.has(bigram);
+  }
+  return false;
 }
 
-// 33 tỉnh/thành còn lại sau sáp nhập 2025 (không kể Khánh Hòa).
-// Ninh Thuận KHÔNG có trong danh sách: đã là một phần của Khánh Hòa mới.
+// Tên tỉnh/thành KHÁC Khánh Hòa. Gồm CẢ tên hiện hành (33) LẪN tên cũ đã biến mất
+// sau sáp nhập 01/7/2025 (28) — báo chí và MXH vẫn dùng tên cũ hàng ngày, guard chỉ
+// biết tên mới là hở thật (Nghị quyết 202/2025/QH15).
+// ⚠️ Ninh Thuận CỐ Ý không có: đã là một phần của Khánh Hòa mới.
 const OTHER_PROVINCES = [
   'ha noi', 'hue', 'hai phong', 'da nang', 'ho chi minh', 'can tho',
   'lai chau', 'dien bien', 'son la', 'lang son', 'quang ninh', 'thanh hoa',
@@ -877,6 +887,12 @@ const OTHER_PROVINCES = [
   'bac ninh', 'hung yen', 'ninh binh', 'quang tri', 'quang ngai', 'gia lai',
   'lam dong', 'dak lak', 'dong nai', 'tay ninh', 'vinh long', 'dong thap',
   'an giang', 'ca mau', 'cao bang',
+  // 28 tên tỉnh cũ đã biến mất khỏi cấp tỉnh (29 trừ Ninh Thuận)
+  'ha giang', 'yen bai', 'bac kan', 'vinh phuc', 'hoa binh', 'bac giang',
+  'thai binh', 'hai duong', 'ha nam', 'nam dinh', 'quang binh', 'quang nam',
+  'kon tum', 'binh dinh', 'phu yen', 'dak nong', 'binh thuan', 'binh phuoc',
+  'ba ria vung tau', 'binh duong', 'long an', 'tien giang', 'ben tre',
+  'tra vinh', 'hau giang', 'soc trang', 'bac lieu', 'kien giang',
 ];
 
 /**
@@ -887,9 +903,13 @@ const OTHER_PROVINCES = [
  */
 export function inOtherProvinceSentence(text: string, hitStart: number): boolean {
   // Cắt đúng câu chứa hit: lùi/tiến tới dấu kết câu gần nhất
-  const before = text.lastIndexOf('.', hitStart);
-  const nlBefore = text.lastIndexOf('\n', hitStart);
-  const from = Math.max(before, nlBefore) + 1;
+  // Phải xét cả ! và ? ở chiều lùi, không chỉ dấu chấm — nếu không, câu trước kết
+  // bằng "!" sẽ bị nối vào câu chứa hit và guard chặn nhầm.
+  let from = 0;
+  for (const ch of ['.', '\n', '!', '?']) {
+    const p = text.lastIndexOf(ch, hitStart);
+    if (p !== -1 && p + 1 > from) from = p + 1;
+  }
   let to = text.length;
   for (const ch of ['.', '\n', '!', '?']) {
     const p = text.indexOf(ch, hitStart);
