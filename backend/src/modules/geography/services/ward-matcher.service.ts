@@ -26,27 +26,51 @@ export class WardMatcherService {
     private unmatchedRepo: Repository<UnmatchedLocation>,
   ) {}
 
-  // Nạp lại index (gọi sau khi seed/sửa gazetteer mà không restart app)
+  // Nạp lại index (gọi sau khi seed/sửa gazetteer mà không restart app).
+  // KHÔNG ném lỗi ra ngoài: bảng ward_aliases có thể chưa tồn tại hoặc DB mất
+  // kết nối tại thời điểm gọi — lỗi chỉ log warn, this.index CỐ Ý giữ nguyên
+  // giá trị cũ (null nếu chưa từng nạp được lần nào) để lần match() kế tiếp
+  // tự thử nạp lại, nhờ vậy hệ thống tự phục hồi khi DB sống lại mà không
+  // cần restart app.
   async reloadIndex(): Promise<void> {
-    const rows = await this.aliasRepo.find();
-    this.index = buildIndex(
-      rows.map((r) => ({
-        wardId: r.wardId,
-        alias: r.alias,
-        requiresCue: r.requiresCue,
-      })),
-    );
+    try {
+      const rows = await this.aliasRepo.find();
+      this.index = buildIndex(
+        rows.map((r) => ({
+          wardId: r.wardId,
+          alias: r.alias,
+          requiresCue: r.requiresCue,
+        })),
+      );
+    } catch (e) {
+      this.logger.warn(`Không nạp được gazetteer ward_aliases: ${e}`);
+    }
   }
 
   async match(text: string, nerLocs?: string[]): Promise<WardMatchResult> {
-    // Gazetteer chỉ ~290 mục và đổi rất hiếm → nạp 1 lần, giữ trong bộ nhớ
+    // Gazetteer chỉ 290 alias và đổi rất hiếm → nạp 1 lần, giữ trong bộ nhớ
     if (!this.index) await this.reloadIndex();
-    const result = matchWard(text, this.index!);
+
+    // Nạp thất bại (DB chết/bảng chưa có) → trả rỗng an toàn, KHÔNG ném.
+    // match() được gọi từ worker NLP: ném lỗi ở đây sẽ đánh sập toàn bộ kết
+    // quả phân tích của bài viết chỉ vì một thuộc tính mô tả (địa bàn) —
+    // không gán được thì bỏ trống, pipeline phải chạy tiếp.
+    if (!this.index) {
+      return {
+        wardId: null,
+        locationText: null,
+        matchedAlias: null,
+        candidates: [],
+        reason: 'none',
+      };
+    }
+
+    const result = matchWard(text, this.index);
 
     // Lưới vớt: LOC nào NER thấy mà gazetteer không biết → ghi lại để bổ sung alias
     for (const loc of nerLocs ?? []) {
       const norm = normalizeAlias(loc);
-      if (!norm || this.index!.has(norm)) continue;
+      if (!norm || this.index.has(norm)) continue;
       await this.recordUnmatched(norm, loc);
     }
     return result;
