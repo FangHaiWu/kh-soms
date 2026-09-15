@@ -31,11 +31,10 @@ export class Ward {
   @Column('varchar', { length: 20, nullable: true })
   region: string | null;
 
-  // Polygon từ OSM; NULL được vì nhánh import là độc lập, không chặn việc gán địa bàn.
-  // select: false — polygon nặng, không truy vấn nghiệp vụ nào cần mặc định load nó;
-  // chỉ script vẽ bản đồ mới cần .addSelect('ward.geom') khi thực sự dùng.
-  @Column({ type: 'geometry', nullable: true, select: false })
-  geom: unknown | null;
+  // CỐ Ý KHÔNG map cột geom ở entity: nó chỉ tồn tại khi PostGIS có mặt
+  // (image postgres:16-alpine không kèm PostGIS). TypeORM đưa mọi cột đã khai
+  // vào câu INSERT kể cả khi select:false, nên khai ở đây sẽ làm vỡ mọi lệnh
+  // ghi ward khi thiếu extension. Task 11 ghi polygon bằng SQL thô.
 
   @Column('varchar', { length: 50, name: 'geom_source', nullable: true })
   geomSource: string | null;

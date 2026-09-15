@@ -7,7 +7,17 @@
 -- =====================================================================
 
 CREATE SCHEMA IF NOT EXISTS spatial;
-CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- PostGIS là TÙY CHỌN ở S6: việc gán địa bàn khớp theo TÊN, không dùng toạ độ.
+-- Polygon chỉ phục vụ vẽ bản đồ ở S9 (Task 11). Image postgres:16-alpine không
+-- kèm PostGIS, nên nếu thiếu thì bỏ qua để không chặn T8-T10 — đổi sang image
+-- postgis/postgis khi cần polygon rồi chạy lại file này.
+DO $$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS postgis;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'PostGIS không có — bỏ qua cột geom/centroid (chỉ ảnh hưởng Task 11)';
+END $$;
 
 CREATE TABLE IF NOT EXISTS spatial.wards (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -16,14 +26,21 @@ CREATE TABLE IF NOT EXISTS spatial.wards (
   short_name  varchar(150),
   ward_type   varchar(20) NOT NULL,        -- xa | phuong | dac_khu
   region      varchar(20),                 -- khanh_hoa_cu | ninh_thuan_cu (nhãn lọc, KHÔNG phải cấp HC)
-  centroid    geography(Point,4326),
-  geom        geometry(MultiPolygon,4326), -- NULL được: polygon là nhánh độc lập
   geom_source varchar(50),
   created_at  timestamptz DEFAULT now(),
   updated_at  timestamptz DEFAULT now(),
   CONSTRAINT uq_ward_name UNIQUE (name)
 );
-CREATE INDEX IF NOT EXISTS idx_wards_geom ON spatial.wards USING GIST(geom);
+-- Cột không gian + index chỉ tạo khi PostGIS thực sự có mặt
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'postgis') THEN
+    ALTER TABLE spatial.wards
+      ADD COLUMN IF NOT EXISTS centroid geography(Point,4326),
+      ADD COLUMN IF NOT EXISTS geom     geometry(MultiPolygon,4326);
+    CREATE INDEX IF NOT EXISTS idx_wards_geom ON spatial.wards USING GIST(geom);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS spatial.ward_aliases (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
