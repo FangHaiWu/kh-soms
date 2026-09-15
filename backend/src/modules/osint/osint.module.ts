@@ -47,6 +47,8 @@ import { NlpProcessProcessor } from './services/nlp-process/nlp-process.processo
 import { OsintActor } from './entities/osint-actor.entity';
 import { OsintActorStat } from './entities/osint-actor-stat.entity';
 import { ActorAggregateJob } from './services/actor/actor-aggregate.job';
+// S6 địa bàn hóa: worker NLP cần WardMatcherService để gán ward_id cho bài
+import { GeographyModule } from '@modules/geography/geography.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -69,6 +71,7 @@ import { ActorAggregateJob } from './services/actor/actor-aggregate.job';
     BullModule.registerQueue({ name: 'osint-crawl' }),
     BullModule.registerQueue({ name: 'osint-nlp' }), // queue phân tích NLP tách khỏi crawl
     CommonModule, // <- thêm để OsintModule dùng được EncryptionService
+    GeographyModule, // S6: cung cấp WardMatcherService cho NlpProcessProcessor
   ],
 
   // TypeOrmModule.forFeature([...]) -> Tao ra cac Repository cho moi Entity va dua vao DI container cuar module

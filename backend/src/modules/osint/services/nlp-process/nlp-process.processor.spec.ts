@@ -31,6 +31,13 @@ describe('NlpProcessProcessor', () => {
   const analyze = jest
     .fn<() => Promise<any>>()
     .mockResolvedValue([{ text: 'Nha Trang', type: 'LOC' }]);
+  const wardMatch = jest.fn<() => Promise<any>>().mockResolvedValue({
+    wardId: null,
+    locationText: null,
+    matchedAlias: null,
+    candidates: [],
+    reason: 'none',
+  });
   const post = {
     id: 'p1',
     content:
@@ -53,6 +60,13 @@ describe('NlpProcessProcessor', () => {
       categories: ['lua-dao'],
       topKeywordPriority: 1,
     });
+    wardMatch.mockResolvedValue({
+      wardId: null,
+      locationText: null,
+      matchedAlias: null,
+      candidates: [],
+      reason: 'none',
+    });
 
     processor = new NlpProcessProcessor(
       { findOne: postFindOne, find: postFind, save: postSave } as any,
@@ -67,6 +81,7 @@ describe('NlpProcessProcessor', () => {
       { createAlertFromGate } as any,
       { analyze } as any,
       new IndicatorExtractorService(), // service thật (thuần logic)
+      { match: wardMatch } as any,
     );
   });
 
@@ -148,5 +163,29 @@ describe('NlpProcessProcessor', () => {
     await run(); // post mặc định không có SĐT/URL/…
     const saved = nlpSave.mock.calls.at(-1)![0] as any;
     expect(saved.indicators).toBeNull();
+  });
+
+  it('S6: post có địa danh → điền ward_id vào post_nlp', async () => {
+    wardMatch.mockResolvedValue({
+      wardId: 'w-dk',
+      locationText: 'Diên Khánh',
+      matchedAlias: 'Diên Khánh',
+      candidates: [],
+      reason: 'matched',
+    });
+    await run();
+    const savedNlp = nlpSave.mock.calls.at(-1)![0] as any;
+    expect(savedNlp.wardId).toBe('w-dk');
+    expect(savedNlp.locationText).toBe('Diên Khánh');
+  });
+
+  it('S6: matcher ném lỗi → post vẫn done, ward_id NULL', async () => {
+    wardMatch.mockImplementation(() => {
+      throw new Error('gazetteer chết');
+    });
+    await run();
+    const savedNlp = nlpSave.mock.calls.at(-1)![0] as any;
+    expect(savedNlp.processingStatus).toBe('done');
+    expect(savedNlp.wardId).toBeNull();
   });
 });

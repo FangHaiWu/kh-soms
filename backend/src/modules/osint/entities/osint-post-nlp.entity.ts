@@ -97,6 +97,21 @@ export class OsintPostNlp {
   @Column('float', { name: 'credibility', nullable: true })
   credibility: number;
 
+  // S6 địa bàn hóa — NULL khi không khớp được đúng 1 xã (mơ hồ hoặc không có địa danh)
+  @Column('uuid', { name: 'ward_id', nullable: true })
+  wardId: string | null;
+
+  // Cụm địa danh bắt được trong bài, giữ nguyên văn kể cả khi wardId NULL
+  @Column('varchar', { length: 200, name: 'location_text', nullable: true })
+  locationText: string | null;
+
+  @Column('varchar', { length: 150, name: 'matched_alias', nullable: true })
+  matchedAlias: string | null;
+
+  // Mọi địa danh kèm vai trò P1-P4 — để đổi luật chọn sau mà không phải quét lại bài
+  @Column('jsonb', { name: 'location_candidates', nullable: true })
+  locationCandidates: unknown | null;
+
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 

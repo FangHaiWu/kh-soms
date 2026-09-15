@@ -24,6 +24,9 @@ export class AlertService {
     decision: GateDecision,
     nlp: NlpResult,
     slang: SlangResult,
+    // S6: ward_id của post (nếu khớp được) — alert kế thừa để S7/S9 lọc theo xã.
+    // Optional để không phá caller cũ chưa truyền tham số này.
+    wardId?: string | null,
   ): Promise<OsintAlert | null> {
     try {
       const reasons = decision.notabilityReasons;
@@ -74,6 +77,8 @@ export class AlertService {
         description: parts.join(' | '),
         sourceRefIds: [postId],
         isAcknowledged: false,
+        // S6: gán trước khi save (không phải update riêng) — tránh round-trip DB thứ 2
+        wardId: wardId ?? null,
       });
       return await this.alertRepo.save(alert);
     } catch (error) {

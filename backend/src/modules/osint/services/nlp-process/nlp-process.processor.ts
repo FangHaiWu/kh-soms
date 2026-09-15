@@ -15,6 +15,7 @@ import { GateService, GateThresholds } from '../gate/gate.service';
 import { AlertService } from '../alert/alert.service';
 import { NlpAnalyzerBridgeService } from '@modules/osint/services/nlp-analyzer/nlp-analyzer-bridge.service';
 import { IndicatorExtractorService } from '../indicator/indicator-extractor.service';
+import { WardMatcherService } from '@modules/geography/services/ward-matcher.service';
 // Ngưỡng mặc định khi chưa có hàng osint_gate_config active (worker vẫn chạy được).
 const DEFAULT_THRESHOLDS: GateThresholds = {
   zScoreCutoff: 2,
@@ -53,6 +54,7 @@ export class NlpProcessProcessor {
     private alert: AlertService,
     private nerBridge: NlpAnalyzerBridgeService,
     private indicatorExtractor: IndicatorExtractorService,
+    private wardMatcher: WardMatcherService,
   ) {}
 
   @Process('process-post')
@@ -89,6 +91,24 @@ export class NlpProcessProcessor {
 
       // #3 CNC: bóc chỉ dấu (SĐT/STK/ví/URL/handle) bằng regex — không đụng Gate, nuôi vân-tay-actor L2
       const indicators = this.indicatorExtractor.extract(normalizedContent);
+
+      // 3.5. S6 địa bàn hóa: khớp địa danh → 1 xã/phường. Dùng LOC của NER làm lưới vớt.
+      // Null-safe: gazetteer lỗi KHÔNG được làm chết bài — địa bàn là thuộc tính mô tả.
+      let geo = {
+        wardId: null as string | null,
+        locationText: null as string | null,
+        matchedAlias: null as string | null,
+        candidates: [] as unknown[],
+      };
+      try {
+        const locs = (nerEntities ?? [])
+          .filter((e) => e.type === 'LOC')
+          .map((e) => e.text);
+        geo = await this.wardMatcher.match(normalizedContent, locs);
+      } catch (e) {
+        this.logger.warn(`Địa bàn hóa thất bại post ${postId}: ${e}`);
+      }
+
       // 4. Trust: platform prior → source trust; gom cụm corroboration theo content_hash → credibility
       const platform = await this.platformRepo.findOne({
         where: { id: post.platformId },
@@ -139,6 +159,11 @@ export class NlpProcessProcessor {
       nlp.signalFeatures = decision.signalFeatures;
       nlp.gatePassed = decision.isNotable; // cờ cho S5c LLM
       nlp.credibility = credibility;
+      // S6: ghi địa bàn. KHÔNG đưa vào Gate — địa bàn không phải tín hiệu notability.
+      nlp.wardId = geo.wardId;
+      nlp.locationText = geo.locationText;
+      nlp.matchedAlias = geo.matchedAlias;
+      nlp.locationCandidates = geo.candidates.length > 0 ? geo.candidates : null;
       nlp.processingStatus = 'done';
       await this.postNlpRepo.save(nlp);
 
@@ -151,12 +176,15 @@ export class NlpProcessProcessor {
       // 7. Alert nếu notable (dời từ ingest sang đây — alert phụ thuộc kết quả NLP async)
       if (decision.isNotable) {
         const title = (post.content ?? '').slice(0, 80);
+        // Truyền wardId để AlertService gán trước khi save (ít sửa hơn thêm alertRepo
+        // vào processor này — processor hiện chưa cần thao tác trực tiếp bảng alert).
         await this.alert.createAlertFromGate(
           postId,
           title,
           decision,
           nlpResult,
           slang,
+          geo.wardId,
         );
       }
     } catch (e) {

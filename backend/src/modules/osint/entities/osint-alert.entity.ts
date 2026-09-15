@@ -40,4 +40,8 @@ export class OsintAlert {
 
   @Column('timestamptz', { name: 'acknowledged_at', nullable: true })
   acknowledgedAt: Date;
+
+  // S6 — alert kế thừa địa bàn từ post
+  @Column('uuid', { name: 'ward_id', nullable: true })
+  wardId: string | null;
 }
