@@ -116,4 +116,11 @@ export class OsintController {
       url: group.url,
     };
   }
+
+  // GET /api/v1/osint/wards/stats — số bài theo địa bàn + địa danh chưa khớp.
+  // Đặt TRƯỚC mọi route @Get(':id') nếu sau này thêm, kẻo 'wards' bị nuốt thành id.
+  @Get('wards/stats')
+  async getWardStats() {
+    return this.osintService.getWardStats();
+  }
 }

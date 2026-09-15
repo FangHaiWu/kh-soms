@@ -7,6 +7,9 @@ import { OsintSource } from './entities/osint-source.entity';
 import { OsintKeyword } from './entities/osint-keyword.entity';
 import { OsintActor } from './entities/osint-actor.entity';
 import { OsintActorStat } from './entities/osint-actor-stat.entity';
+import { OsintPostNlp } from './entities/osint-post-nlp.entity';
+import { Ward } from '@modules/geography/entities/ward.entity';
+import { UnmatchedLocation } from '@modules/geography/entities/unmatched-location.entity';
 
 @Injectable()
 export class OsintService {
@@ -21,6 +24,10 @@ export class OsintService {
     private keywordRepo: Repository<OsintKeyword>,
     @InjectRepository(OsintActorStat)
     private actorStatRepo: Repository<OsintActorStat>,
+    @InjectRepository(Ward)
+    private wardRepo: Repository<Ward>,
+    @InjectRepository(UnmatchedLocation)
+    private unmatchedRepo: Repository<UnmatchedLocation>,
   ) {}
 
   // Lớp 2 CNC: xếp hạng actor theo tổng bài CNC (sum category_counts) giảm dần
@@ -75,5 +82,36 @@ export class OsintService {
       where: { isActive: true },
       order: { priority: 'ASC' },
     });
+  }
+
+  /**
+   * Thống kê số bài đã gán theo từng xã/phường + top địa danh chưa khớp.
+   * Phục vụ verify sau backfill và là nguồn dữ liệu đầu cho bản đồ nhiệt S9.
+   */
+  async getWardStats() {
+    // LEFT JOIN để xã chưa có bài nào vẫn hiện với count 0 — bản đồ cần đủ 65 ô
+    const wards = await this.wardRepo
+      .createQueryBuilder('w')
+      .leftJoin(OsintPostNlp, 'n', 'n.ward_id = w.id')
+      .select('w.name', 'name')
+      .addSelect('w.ward_type', 'wardType')
+      .addSelect('w.region', 'region')
+      .addSelect('COUNT(n.id)::int', 'postCount')
+      .groupBy('w.id')
+      .orderBy('COUNT(n.id)', 'DESC')
+      .addOrderBy('w.name', 'ASC')
+      .getRawMany();
+
+    // Địa danh NER bắt được mà gazetteer chưa biết → đọc để bổ sung alias
+    const unmatchedTop = await this.unmatchedRepo.find({
+      order: { occurrences: 'DESC' },
+      take: 20,
+    });
+    return {
+      total: wards.length,
+      assigned: wards.reduce((a, w) => a + Number(w.postCount), 0),
+      wards,
+      unmatchedTop,
+    };
   }
 }

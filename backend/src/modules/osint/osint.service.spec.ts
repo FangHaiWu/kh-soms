@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { Ward } from '@modules/geography/entities/ward.entity';
+import { UnmatchedLocation } from '@modules/geography/entities/unmatched-location.entity';
 import { OsintService } from './osint.service';
 import { OsintArticle } from './entities/osint-article.entity';
 import { OsintSource } from './entities/osint-source.entity';
@@ -19,6 +21,8 @@ describe('OsintService', () => {
         { provide: getRepositoryToken(OsintAlert), useValue: {} },
         { provide: getRepositoryToken(OsintKeyword), useValue: {} },
         { provide: getRepositoryToken(OsintActorStat), useValue: {} },
+        { provide: getRepositoryToken(Ward), useValue: {} },
+        { provide: getRepositoryToken(UnmatchedLocation), useValue: {} },
       ],
     }).compile();
 
