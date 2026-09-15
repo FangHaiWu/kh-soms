@@ -855,11 +855,13 @@ Thêm vào `ward-matcher.ts`:
 
 ```typescript
 // Tiền tố báo hiệu phía sau là địa danh. "đặc khu"/"thị trấn" là 2 token nên dò cả cặp.
-const CUE_WORDS = new Set(['xa', 'phuong', 'thon', 'tai', 'o', 'thuoc', 'dia', 'ban']);
+const CUE_WORDS = new Set(['xa', 'phuong', 'thon', 'tai', 'o', 'thuoc']);
 // Cue 2 token. BẮT BUỘC tách khỏi cue đơn-từ: bỏ dấu làm "trấn" (thị trấn) đụng
 // nguyên vào họ "Trần" — họ phổ biến nhất VN — nên "Trần Bảo An" từng khớp nhầm
 // thành xã Bảo An. Hồ sơ ANTT đầy "Trần Văn X" nên đây là gán sai quy mô lớn.
-const CUE_BIGRAMS = new Set(['thi tran', 'dac khu']);
+// 'dia ban' phải là bigram: 'ban' trần đụng "bạn"/"bán" sau khi bỏ dấu,
+// làm "đi cùng bạn Bảo An" khớp nhầm thành xã Bảo An.
+const CUE_BIGRAMS = new Set(['thi tran', 'dac khu', 'dia ban']);
 
 /**
  * Có cue ngay trước cụm không? Chỉ xét 1 token liền trước — cue xa hơn
@@ -887,6 +889,8 @@ const OTHER_PROVINCES = [
   'bac ninh', 'hung yen', 'ninh binh', 'quang tri', 'quang ngai', 'gia lai',
   'lam dong', 'dak lak', 'dong nai', 'tay ninh', 'vinh long', 'dong thap',
   'an giang', 'ca mau', 'cao bang',
+  // Cách gọi phổ biến của TP.HCM — 'Tân Định' là tên phường/chợ nổi tiếng Sài Gòn
+  'sai gon', 'tp hcm', 'tphcm',
   // 28 tên tỉnh cũ đã biến mất khỏi cấp tỉnh (29 trừ Ninh Thuận)
   'ha giang', 'yen bai', 'bac kan', 'vinh phuc', 'hoa binh', 'bac giang',
   'thai binh', 'hai duong', 'ha nam', 'nam dinh', 'quang binh', 'quang nam',
@@ -915,8 +919,10 @@ export function inOtherProvinceSentence(text: string, hitStart: number): boolean
     const p = text.indexOf(ch, hitStart);
     if (p !== -1 && p < to) to = p;
   }
-  const sentence = normalizeAlias(text.slice(from, to));
-  return OTHER_PROVINCES.some((p) => sentence.includes(p));
+  // So khớp theo RANH GIỚI TỪ, không phải substring trần: 'hue' nằm bên trong
+  // "thuê"/"thuế" — câu "đối tượng thuê phòng trọ tại xã X" từng bị chặn oan.
+  const padded = ` ${normalizeAlias(text.slice(from, to))} `;
+  return OTHER_PROVINCES.some((p) => padded.includes(` ${p} `));
 }
 ```
 
@@ -1258,22 +1264,35 @@ export class WardMatcherService {
     private unmatchedRepo: Repository<UnmatchedLocation>,
   ) {}
 
-  // Nạp lại index (gọi sau khi seed/sửa gazetteer mà không restart app)
+  // Nạp lại index (gọi sau khi seed/sửa gazetteer mà không restart app).
+  // Lỗi DB KHÔNG được ném ra ngoài: worker NLP gọi match() nên một sự cố gazetteer
+  // sẽ đánh dấu cả bài viết failed, dù địa bàn chỉ là thuộc tính mô tả.
   async reloadIndex(): Promise<void> {
-    const rows = await this.aliasRepo.find();
-    this.index = buildIndex(
-      rows.map((r) => ({
-        wardId: r.wardId,
-        alias: r.alias,
-        requiresCue: r.requiresCue,
-      })),
-    );
+    try {
+      const rows = await this.aliasRepo.find();
+      this.index = buildIndex(
+        rows.map((r) => ({
+          wardId: r.wardId,
+          alias: r.alias,
+          requiresCue: r.requiresCue,
+        })),
+      );
+    } catch (e) {
+      // Cố ý để this.index = null: lần match() sau sẽ thử nạp lại, nên khi DB
+      // sống lại hệ thống tự phục hồi mà không cần restart.
+      this.logger.warn(`Không nạp được gazetteer: ${e}`);
+    }
   }
 
   async match(text: string, nerLocs?: string[]): Promise<WardMatchResult> {
-    // Gazetteer chỉ ~700 mục và đổi rất hiếm → nạp 1 lần, giữ trong bộ nhớ
+    // Gazetteer chỉ 290 alias và đổi rất hiếm → nạp 1 lần, giữ trong bộ nhớ
     if (!this.index) await this.reloadIndex();
-    const result = matchWard(text, this.index!);
+    // Nạp thất bại → trả kết quả rỗng an toàn, TUYỆT ĐỐI không ném lên worker
+    if (!this.index) {
+      return { wardId: null, locationText: null, matchedAlias: null,
+               candidates: [], reason: 'none' };
+    }
+    const result = matchWard(text, this.index);
 
     // Lưới vớt: LOC nào NER thấy mà gazetteer không biết → ghi lại để bổ sung alias
     for (const loc of nerLocs ?? []) {
