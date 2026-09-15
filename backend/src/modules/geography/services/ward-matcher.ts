@@ -76,18 +76,21 @@ export function buildIndex(entries: AliasEntry[]): AliasIndex {
 
 // Tiền tố báo hiệu phía sau là địa danh — cue đơn-từ.
 // CỐ Ý KHÔNG có 'tran' (đụng họ "Trần" — họ phổ biến nhất VN, "Trần Bảo An"
-// sẽ khớp nhầm ward "Bảo An") và KHÔNG có 'khu' đơn lẻ (đụng "khu vực", "khu
-// phố" — quá nhiễu). Hai trường hợp "thị trấn"/"đặc khu" xử lý riêng bằng
-// bigram bên dưới.
-const CUE_WORDS = new Set(['xa', 'phuong', 'thon', 'tai', 'o', 'thuoc', 'ban']);
+// sẽ khớp nhầm ward "Bảo An"), KHÔNG có 'khu' đơn lẻ (đụng "khu vực", "khu
+// phố" — quá nhiễu), và KHÔNG có 'ban' đơn lẻ (đụng "bạn"/"bán" sau khi bỏ
+// dấu — "đi cùng bạn Bảo An" sẽ khớp nhầm ward "Bảo An"). Ba trường hợp
+// "thị trấn"/"đặc khu"/"địa bàn" xử lý riêng bằng bigram bên dưới, vì cụm 2
+// token ghép lại mới đủ đặc trưng để không đụng từ thông thường.
+const CUE_WORDS = new Set(['xa', 'phuong', 'thon', 'tai', 'o', 'thuoc']);
 
 // Cue 2 token — cụm này ghép lại mới mang nghĩa tiền tố địa danh, tách rời
-// từng từ ("thi", "tran") không phải cue vì tự nó không báo hiệu gì.
-const CUE_BIGRAMS = new Set(['thi tran', 'dac khu']);
+// từng từ ("thi", "tran", "dia", "ban") không phải cue vì tự nó không báo
+// hiệu gì (hoặc còn gây hại như 'ban' đứng một mình).
+const CUE_BIGRAMS = new Set(['thi tran', 'dac khu', 'dia ban']);
 
 /**
  * Có cue ngay trước cụm không? Xét 1 token liền trước (cue đơn) và 2 token
- * liền trước (cue ghép "thị trấn"/"đặc khu") — cue xa hơn thường thuộc về
+ * liền trước (cue ghép "thị trấn"/"đặc khu"/"địa bàn") — cue xa hơn thường thuộc về
  * danh từ khác ("công an huyện X điều tra vụ Tân Định").
  */
 export function hasCue(tokens: Token[], tokenIndex: number): boolean {
@@ -113,6 +116,11 @@ const OTHER_PROVINCES = [
   'hai phong',
   'da nang',
   'ho chi minh',
+  // Cách gọi phổ biến khác của TP.HCM ngoài tên hành chính — "Tân Định" là
+  // tên phường/chợ nổi tiếng nhất Sài Gòn, chắc chắn xuất hiện dày trong tin.
+  'sai gon',
+  'tp hcm',
+  'tphcm',
   'can tho',
   'lai chau',
   'dien bien',
@@ -178,26 +186,46 @@ const OTHER_PROVINCES = [
  * Thiếu guard này thì mọi tin toàn quốc có tên trùng ("xã Tân Định, Bình Dương")
  * sẽ đổ vào bản đồ Khánh Hòa.
  */
+// '.' chỉ tính là dấu KẾT CÂU khi theo sau là khoảng trắng hoặc hết chuỗi.
+// Dấu chấm viết tắt kiểu "TP.HCM" đứng dính liền chữ ("P" rồi ".HCM" không
+// có khoảng trắng) — nếu coi là kết câu thì "HCM" bị cắt rời khỏi câu, guard
+// mất luôn tín hiệu "TP.HCM" dù đã có trong OTHER_PROVINCES.
+function isSentenceEnd(text: string, pos: number): boolean {
+  const ch = text[pos];
+  if (ch === '\n' || ch === '!' || ch === '?') return true;
+  if (ch !== '.') return false;
+  const next = text[pos + 1];
+  return next === undefined || /\s/.test(next);
+}
+
 export function inOtherProvinceSentence(
   text: string,
   hitStart: number,
 ): boolean {
-  // Cắt đúng câu chứa hit: lùi/tiến tới dấu kết câu gần nhất.
-  // Phải dò ĐỦ 4 dấu kết câu ('.', '\n', '!', '?') ở CẢ hai phía — thiếu '!'/'?'
-  // khi lùi về trước sẽ nối nhầm câu trước vào câu hiện tại (vd câu trước kết
-  // bằng '!' thì lùi chỉ thấy '.' xa hơn, from tính sai, guard ăn nhầm sang câu bên cạnh).
+  // Cắt đúng câu chứa hit: lùi/tiến tới dấu kết câu gần nhất, đối xứng cả 2
+  // phía, và bỏ qua dấu chấm viết tắt (xem isSentenceEnd).
   let from = 0;
-  for (const ch of ['.', '\n', '!', '?']) {
-    const p = text.lastIndexOf(ch, hitStart);
-    if (p !== -1 && p + 1 > from) from = p + 1;
+  for (let p = hitStart - 1; p >= 0; p--) {
+    if (isSentenceEnd(text, p)) {
+      from = p + 1;
+      break;
+    }
   }
   let to = text.length;
-  for (const ch of ['.', '\n', '!', '?']) {
-    const p = text.indexOf(ch, hitStart);
-    if (p !== -1 && p < to) to = p;
+  for (let p = hitStart; p < text.length; p++) {
+    if (isSentenceEnd(text, p)) {
+      to = p;
+      break;
+    }
   }
   const sentence = normalizeAlias(text.slice(from, to));
-  return OTHER_PROVINCES.some((p) => sentence.includes(p));
+  // So khớp theo RANH GIỚI TỪ, không phải substring trần: 'hue' là substring
+  // của 'thue' (bỏ dấu của "thuê") nên "thuê phòng trọ" sẽ bị tưởng nhầm là
+  // Huế nếu dùng includes() thường. Câu đã chuẩn hóa chỉ còn khoảng trắng
+  // đơn nên chèn đệm 2 đầu rồi so cụm có khoảng trắng bao quanh là đủ chặn
+  // mọi va chạm substring, không riêng 'hue'.
+  const padded = ` ${sentence} `;
+  return OTHER_PROVINCES.some((p) => padded.includes(` ${p} `));
 }
 
 /**

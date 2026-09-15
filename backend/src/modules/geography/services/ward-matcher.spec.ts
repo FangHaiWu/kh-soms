@@ -178,6 +178,53 @@ describe('guard tỉnh khác — cắt câu đối xứng cả 2 phía', () => {
   });
 });
 
+describe('cue-gating — bỏ cue đơn "ban" (đụng "bạn"/"bán"), giữ bigram "địa bàn"', () => {
+  // Lặp lại đúng dạng bug "Trần Bảo An" nhưng ở cue 'ban': bỏ dấu thì
+  // "bạn"/"bán"/"ban" cùng ra 'ban' nên "đi cùng bạn Bảo An" từng khớp nhầm
+  // ward "Bảo An" nếu 'ban' còn là cue đơn.
+  it('"bạn" KHÔNG bị coi là cue — "đi cùng bạn Bảo An về quê" không khớp nhầm', () => {
+    expect(
+      findHits('đi cùng bạn Bảo An về quê', CUE_INDEX_BIGRAM),
+    ).toHaveLength(0);
+  });
+
+  it('bigram "địa bàn" thay thế đúng chức năng của cue "ban" vừa bỏ', () => {
+    const hits = findHits('trên địa bàn Bảo An', CUE_INDEX_BIGRAM);
+    expect(hits[0].entries[0].wardId).toBe('w-ba');
+  });
+});
+
+describe('guard tỉnh khác — thêm cách gọi khác của TP.HCM', () => {
+  // "Tân Định" là tên phường/chợ nổi tiếng nhất Sài Gòn — chắc chắn xuất
+  // hiện dày trong dữ liệu OSINT toàn quốc dưới tên "Sài Gòn"/"TP.HCM"
+  // chứ không chỉ tên hành chính "Hồ Chí Minh".
+  it('bỏ qua khi cùng câu có "TP.HCM"', () => {
+    expect(
+      findHits('Vụ cháy xảy ra tại Tân Định, TP.HCM', CUE_INDEX),
+    ).toHaveLength(0);
+  });
+
+  it('bỏ qua khi cùng câu có "Sài Gòn"', () => {
+    expect(
+      findHits('Vụ cháy xảy ra tại Tân Định, Sài Gòn', CUE_INDEX),
+    ).toHaveLength(0);
+  });
+});
+
+describe('guard tỉnh khác — so khớp theo ranh giới từ, không phải substring', () => {
+  // 'hue' là substring của 'thue' (bỏ dấu của "thuê") — includes() thường sẽ
+  // tưởng nhầm "thuê phòng trọ" là đang nhắc Huế. "Thuê phòng", "thuê xe" là
+  // văn phong hằng ngày của hồ sơ công an nên đây là mất mát tần suất cao.
+  it('"thuê phòng trọ" KHÔNG bị tưởng nhầm là Huế — xã Vạn Ninh vẫn khớp được', () => {
+    const hits = findHits(
+      'đối tượng thuê phòng trọ tại xã Vạn Ninh',
+      buildIndex([{ wardId: 'w-vn', alias: 'Vạn Ninh', requiresCue: false }]),
+    );
+    expect(hits).toHaveLength(1);
+    expect(hits[0].entries[0].wardId).toBe('w-vn');
+  });
+});
+
 // Index riêng cho Task 5 — thang vai trò P1-P4.
 // "Ninh Hải" trỏ 2 ward — thế mơ hồ có thật trong NQ 1667 (xã mới Ninh Thuận
 // vs phường cũ Ninh Hòa, cách nhau >100km, KHÔNG được phá bằng alias_type).
