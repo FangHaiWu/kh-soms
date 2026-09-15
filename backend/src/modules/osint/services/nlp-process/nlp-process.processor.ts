@@ -163,7 +163,8 @@ export class NlpProcessProcessor {
       nlp.wardId = geo.wardId;
       nlp.locationText = geo.locationText;
       nlp.matchedAlias = geo.matchedAlias;
-      nlp.locationCandidates = geo.candidates.length > 0 ? geo.candidates : null;
+      nlp.locationCandidates =
+        geo.candidates.length > 0 ? geo.candidates : null;
       nlp.processingStatus = 'done';
       await this.postNlpRepo.save(nlp);
 

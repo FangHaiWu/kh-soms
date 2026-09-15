@@ -11,14 +11,19 @@ import { AppModule } from '../app.module';
 import { Ward } from '../modules/geography/entities/ward.entity';
 import { WardAlias } from '../modules/geography/entities/ward-alias.entity';
 import { WARDS } from '../modules/geography/data/khanh-hoa-wards';
-import { buildAliasRows, stripPrefix } from '../modules/geography/data/build-ward-aliases';
+import {
+  buildAliasRows,
+  stripPrefix,
+} from '../modules/geography/data/build-ward-aliases';
 
 async function main() {
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: ['error'],
   });
   const wardRepo: Repository<Ward> = app.get(getRepositoryToken(Ward));
-  const aliasRepo: Repository<WardAlias> = app.get(getRepositoryToken(WardAlias));
+  const aliasRepo: Repository<WardAlias> = app.get(
+    getRepositoryToken(WardAlias),
+  );
 
   let nWard = 0;
   let nAlias = 0;
@@ -44,7 +49,9 @@ async function main() {
   }
 
   const total = await wardRepo.count();
-  console.log(`✅ ward mới: ${nWard} | alias ghi: ${nAlias} | tổng ward: ${total}`);
+  console.log(
+    `✅ ward mới: ${nWard} | alias ghi: ${nAlias} | tổng ward: ${total}`,
+  );
   if (total !== 65) console.warn(`⚠️  Tổng ward = ${total}, kỳ vọng 65`);
   await app.close();
 }

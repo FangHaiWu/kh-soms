@@ -1,4 +1,10 @@
-import { buildIndex, findHits, matchWard, normalizeAlias, tokenizeVi } from './ward-matcher';
+import {
+  buildIndex,
+  findHits,
+  matchWard,
+  normalizeAlias,
+  tokenizeVi,
+} from './ward-matcher';
 
 // Index nhỏ dựng tay — test thuần, không đụng DB
 const INDEX = buildIndex([
@@ -102,7 +108,9 @@ describe('cue-gating', () => {
 
 describe('guard tỉnh khác', () => {
   it('bỏ qua địa danh khi cùng câu có tên tỉnh khác', () => {
-    expect(findHits('Công an xã Tân Định, Bình Dương triệt phá', CUE_INDEX)).toHaveLength(0);
+    expect(
+      findHits('Công an xã Tân Định, Bình Dương triệt phá', CUE_INDEX),
+    ).toHaveLength(0);
   });
 
   it('KHÔNG bỏ khi tỉnh nhắc tới là Khánh Hòa', () => {
@@ -111,7 +119,10 @@ describe('guard tỉnh khác', () => {
   });
 
   it('câu khác không ảnh hưởng nhau', () => {
-    const hits = findHits('Tin từ Bình Dương. Vụ việc tại Diên Khánh.', CUE_INDEX);
+    const hits = findHits(
+      'Tin từ Bình Dương. Vụ việc tại Diên Khánh.',
+      CUE_INDEX,
+    );
     expect(hits).toHaveLength(1);
   });
 
@@ -138,7 +149,9 @@ describe('cue-gating — họ "Trần" không được coi là cue, bigram thị
   // "trấn") từng khiến MỌI người tên "Trần ..." bị khớp nhầm vào ward trùng
   // tên đệm/tên. Hồ sơ ANTT đầy "Trần Văn X" nên đây là gán sai quy mô lớn.
   it('họ "Trần" KHÔNG bị coi là cue — "Trần Bảo An" không khớp nhầm ward Bảo An', () => {
-    expect(findHits('đối tượng Trần Bảo An khai nhận', CUE_INDEX_BIGRAM)).toHaveLength(0);
+    expect(
+      findHits('đối tượng Trần Bảo An khai nhận', CUE_INDEX_BIGRAM),
+    ).toHaveLength(0);
   });
 
   it('bigram "thị trấn" thay thế đúng chức năng của cue "tran" vừa bỏ', () => {
@@ -157,7 +170,10 @@ describe('guard tỉnh khác — cắt câu đối xứng cả 2 phía', () => {
   // '!'/'?' → câu trước kết bằng "!" bị nối nhầm vào câu sau, guard ăn lan
   // sang câu không liên quan.
   it('câu trước kết bằng "!" không nuốt câu sau — Diên Khánh vẫn khớp được', () => {
-    const hits = findHits('Bắt giữ tại Bình Dương! Xảy ra tại Diên Khánh.', CUE_INDEX);
+    const hits = findHits(
+      'Bắt giữ tại Bình Dương! Xảy ra tại Diên Khánh.',
+      CUE_INDEX,
+    );
     expect(hits).toHaveLength(1);
   });
 });
@@ -183,7 +199,10 @@ describe('matchWard — thang vai trò', () => {
   });
 
   it('P4 nơi cư trú bị loại, lấy nơi gây án', () => {
-    const r = matchWard('Đối tượng trú tại xã Diên Khánh, gây án tại xã Suối Hiệp', RES_INDEX);
+    const r = matchWard(
+      'Đối tượng trú tại xã Diên Khánh, gây án tại xã Suối Hiệp',
+      RES_INDEX,
+    );
     expect(r.wardId).toBe('w-sh');
     expect(r.reason).toBe('matched');
   });
@@ -198,8 +217,11 @@ describe('matchWard — thang vai trò', () => {
   it('không khớp gì → none, mọi trường null', () => {
     const r = matchWard('Hôm nay trời đẹp', RES_INDEX);
     expect(r).toEqual({
-      wardId: null, locationText: null, matchedAlias: null,
-      candidates: [], reason: 'none',
+      wardId: null,
+      locationText: null,
+      matchedAlias: null,
+      candidates: [],
+      reason: 'none',
     });
   });
 
@@ -210,7 +232,10 @@ describe('matchWard — thang vai trò', () => {
   });
 
   it('candidates giữ mọi địa danh kèm vai trò để tính lại sau', () => {
-    const r = matchWard('Công an xã Diên Khánh bắt tại xã Suối Hiệp', RES_INDEX);
+    const r = matchWard(
+      'Công an xã Diên Khánh bắt tại xã Suối Hiệp',
+      RES_INDEX,
+    );
     expect(r.candidates.map((c) => c.role).sort()).toEqual(['P2', 'P3']);
   });
 

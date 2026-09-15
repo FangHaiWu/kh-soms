@@ -79,9 +79,7 @@ export function buildIndex(entries: AliasEntry[]): AliasIndex {
 // sẽ khớp nhầm ward "Bảo An") và KHÔNG có 'khu' đơn lẻ (đụng "khu vực", "khu
 // phố" — quá nhiễu). Hai trường hợp "thị trấn"/"đặc khu" xử lý riêng bằng
 // bigram bên dưới.
-const CUE_WORDS = new Set([
-  'xa', 'phuong', 'thon', 'tai', 'o', 'thuoc', 'ban',
-]);
+const CUE_WORDS = new Set(['xa', 'phuong', 'thon', 'tai', 'o', 'thuoc', 'ban']);
 
 // Cue 2 token — cụm này ghép lại mới mang nghĩa tiền tố địa danh, tách rời
 // từng từ ("thi", "tran") không phải cue vì tự nó không báo hiệu gì.
@@ -110,18 +108,68 @@ export function hasCue(tokens: Token[], tokenIndex: number): boolean {
 // ⚠️ Ninh Thuận CỐ Ý không có trong danh sách: đã là một phần của Khánh Hòa mới.
 const OTHER_PROVINCES = [
   // 33 tỉnh/thành hiện hành (34 trừ Khánh Hòa)
-  'ha noi', 'hue', 'hai phong', 'da nang', 'ho chi minh', 'can tho',
-  'lai chau', 'dien bien', 'son la', 'lang son', 'quang ninh', 'thanh hoa',
-  'nghe an', 'ha tinh', 'tuyen quang', 'lao cai', 'thai nguyen', 'phu tho',
-  'bac ninh', 'hung yen', 'ninh binh', 'quang tri', 'quang ngai', 'gia lai',
-  'lam dong', 'dak lak', 'dong nai', 'tay ninh', 'vinh long', 'dong thap',
-  'an giang', 'ca mau', 'cao bang',
+  'ha noi',
+  'hue',
+  'hai phong',
+  'da nang',
+  'ho chi minh',
+  'can tho',
+  'lai chau',
+  'dien bien',
+  'son la',
+  'lang son',
+  'quang ninh',
+  'thanh hoa',
+  'nghe an',
+  'ha tinh',
+  'tuyen quang',
+  'lao cai',
+  'thai nguyen',
+  'phu tho',
+  'bac ninh',
+  'hung yen',
+  'ninh binh',
+  'quang tri',
+  'quang ngai',
+  'gia lai',
+  'lam dong',
+  'dak lak',
+  'dong nai',
+  'tay ninh',
+  'vinh long',
+  'dong thap',
+  'an giang',
+  'ca mau',
+  'cao bang',
   // 28 tên tỉnh cũ đã biến mất khỏi cấp tỉnh (29 trừ Ninh Thuận)
-  'ha giang', 'yen bai', 'bac kan', 'vinh phuc', 'hoa binh', 'bac giang',
-  'thai binh', 'hai duong', 'ha nam', 'nam dinh', 'quang binh', 'quang nam',
-  'kon tum', 'binh dinh', 'phu yen', 'dak nong', 'binh thuan', 'binh phuoc',
-  'ba ria vung tau', 'binh duong', 'long an', 'tien giang', 'ben tre',
-  'tra vinh', 'hau giang', 'soc trang', 'bac lieu', 'kien giang',
+  'ha giang',
+  'yen bai',
+  'bac kan',
+  'vinh phuc',
+  'hoa binh',
+  'bac giang',
+  'thai binh',
+  'hai duong',
+  'ha nam',
+  'nam dinh',
+  'quang binh',
+  'quang nam',
+  'kon tum',
+  'binh dinh',
+  'phu yen',
+  'dak nong',
+  'binh thuan',
+  'binh phuoc',
+  'ba ria vung tau',
+  'binh duong',
+  'long an',
+  'tien giang',
+  'ben tre',
+  'tra vinh',
+  'hau giang',
+  'soc trang',
+  'bac lieu',
+  'kien giang',
 ];
 
 /**
@@ -130,7 +178,10 @@ const OTHER_PROVINCES = [
  * Thiếu guard này thì mọi tin toàn quốc có tên trùng ("xã Tân Định, Bình Dương")
  * sẽ đổ vào bản đồ Khánh Hòa.
  */
-export function inOtherProvinceSentence(text: string, hitStart: number): boolean {
+export function inOtherProvinceSentence(
+  text: string,
+  hitStart: number,
+): boolean {
   // Cắt đúng câu chứa hit: lùi/tiến tới dấu kết câu gần nhất.
   // Phải dò ĐỦ 4 dấu kết câu ('.', '\n', '!', '?') ở CẢ hai phía — thiếu '!'/'?'
   // khi lùi về trước sẽ nối nhầm câu trước vào câu hiện tại (vd câu trước kết
@@ -220,7 +271,15 @@ const P1_PATTERNS = ['xay ra tai', 'xay ra o', 'tren dia ban', 'thuoc dia ban'];
 // 'uy ban' đơn lẻ CỐ Ý viết đủ thành 'uy ban nhan dan': "Đại úy Bân" bỏ dấu
 // cũng ra "uy ban" — cùng lớp lỗi với 'tram'/"Trâm" ở trên. Viết tắt "UBND"
 // đã có pattern 'ubnd' lo riêng nên không mất recall.
-const P3_PATTERNS = ['cong an', 'ubnd', 'uy ban nhan dan', 'don bien phong', 'ban chqs', 'vks', 'toa an'];
+const P3_PATTERNS = [
+  'cong an',
+  'ubnd',
+  'uy ban nhan dan',
+  'don bien phong',
+  'ban chqs',
+  'vks',
+  'toa an',
+];
 // 'ngu tai' CỐ Ý GIỮ dù "ngủ tại" (chỗ ngủ tạm) cũng bỏ dấu trùng "ngụ tại"
 // (nơi cư trú, cách viết rất phổ biến trong hồ sơ công an). Xét hướng hỏng:
 // bỏ pattern → "ngụ tại X" tụt xuống P2 → X bị gán NHẦM thành nơi xảy ra vụ
@@ -235,9 +294,15 @@ const P4_PATTERNS = ['tru tai', 'ngu tai', 'thuong tru', 'que o', 'que quan'];
  * Đây là phần thay cho "đếm tần suất": "Công an xã A bắt ... tại xã B" thì
  * đếm tần suất hòa 1-1 rồi lấy A (sai), còn xét vai trò thì P2 thắng P3 → B (đúng).
  */
-export function classifyRole(tokens: Token[], tokenIndex: number): LocationRole {
+export function classifyRole(
+  tokens: Token[],
+  tokenIndex: number,
+): LocationRole {
   const from = Math.max(0, tokenIndex - 4);
-  const window = tokens.slice(from, tokenIndex).map((t) => t.norm).join(' ');
+  const window = tokens
+    .slice(from, tokenIndex)
+    .map((t) => t.norm)
+    .join(' ');
 
   // Thứ tự kiểm quan trọng: P4 (nơi cư trú) phải chặn trước P2, vì "trú tại X"
   // cũng chứa "tại" và sẽ bị nhận nhầm thành vị trí nơi xảy ra.
@@ -266,8 +331,11 @@ export function matchWard(text: string, index: AliasIndex): WardMatchResult {
   const tokens = tokenizeVi(text);
   const hits = findHits(text, index);
   const empty: WardMatchResult = {
-    wardId: null, locationText: null, matchedAlias: null,
-    candidates: [], reason: 'none',
+    wardId: null,
+    locationText: null,
+    matchedAlias: null,
+    candidates: [],
+    reason: 'none',
   };
   if (hits.length === 0) return empty;
 
@@ -280,7 +348,12 @@ export function matchWard(text: string, index: AliasIndex): WardMatchResult {
   const candidates: LocationCandidate[] = [];
   hits.forEach((h, i) => {
     for (const e of h.entries) {
-      candidates.push({ alias: e.alias, wardId: e.wardId, role: roles[i], offset: h.start });
+      candidates.push({
+        alias: e.alias,
+        wardId: e.wardId,
+        role: roles[i],
+        offset: h.start,
+      });
     }
   });
 

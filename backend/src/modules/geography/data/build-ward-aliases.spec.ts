@@ -44,7 +44,9 @@ describe('buildAliasRows', () => {
       oldNames: ['Phước Tiến', 'Phước Thắng', 'Phước Chính'],
       requiresCue: true,
     };
-    const rowsWithCue = buildAliasRows(seedWithCue).filter((r) => r.aliasType === 'official');
+    const rowsWithCue = buildAliasRows(seedWithCue).filter(
+      (r) => r.aliasType === 'official',
+    );
     expect(rowsWithCue.every((r) => r.requiresCue === true)).toBe(true);
 
     const seedNoCue: WardSeed = {
@@ -53,7 +55,9 @@ describe('buildAliasRows', () => {
       region: 'khanh_hoa_cu',
       oldNames: ['Cam Phước Tây', 'Cam An Bắc', 'Cam An Nam'],
     };
-    const rowsNoCue = buildAliasRows(seedNoCue).filter((r) => r.aliasType === 'official');
+    const rowsNoCue = buildAliasRows(seedNoCue).filter(
+      (r) => r.aliasType === 'official',
+    );
     expect(rowsNoCue.every((r) => r.requiresCue === false)).toBe(true);
   });
 });
