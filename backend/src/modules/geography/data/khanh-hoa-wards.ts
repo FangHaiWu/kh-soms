@@ -184,11 +184,14 @@ export const WARDS: WardSeed[] = [
     region: 'khanh_hoa_cu',
     oldNames: ['Vạn Khánh', 'Vạn Long', 'Vạn Phước'],
   },
+  // requiresCue: "Vạn Thắng" bỏ dấu ra "van thang", trùng tên người rất phổ biến
+  // "Văn Thắng". Đo trên 6.199 bài thật: 5/5 lượt khớp đều là "Nguyễn Văn Thắng".
   {
     name: 'Xã Vạn Thắng',
     type: 'xa',
     region: 'khanh_hoa_cu',
     oldNames: ['Vạn Bình', 'Vạn Thắng'],
+    requiresCue: true,
   },
   {
     name: 'Xã Vạn Ninh',

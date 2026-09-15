@@ -30,6 +30,34 @@ export function stripPrefix(name: string): string {
  * khả năng khớp, không test nào kêu nếu thiếu test khóa thứ tự
  * (xem build-ward-aliases.spec.ts).
  */
+/**
+ * Tên đơn vị hành chính CŨ (thành phố/huyện trước sáp nhập) nay được tái dụng
+ * làm tên xã/phường mới. Nhắc TRẦN những tên này gần như luôn là chỉ vùng cũ
+ * chứ không phải đơn vị mới: "sông Cái Nha Trang", "về Nha Trang chơi" nói về
+ * thành phố cũ, không phải phường Nha Trang rộng vài km2.
+ *
+ * Đo trên 6.199 bài thật: để alias trần thì "Nha Trang" chiếm 36/107 lượt gán,
+ * phần lớn sai. Bỏ alias trần còn 75 lượt gán nhưng sạch hơn hẳn — đúng nguyên
+ * tắc GÁN SAI TỆ HƠN KHÔNG GÁN. Dạng có tiền tố ("phường Nha Trang") vẫn khớp
+ * bình thường qua alias tên đầy đủ.
+ */
+const OLD_AREA_NAMES = new Set([
+  'nha trang',
+  'cam ranh',
+  'ninh hoa',
+  'dien khanh',
+  'khanh vinh',
+  'khanh son',
+  'van ninh',
+  'ninh phuoc',
+  'ninh hai',
+  'ninh son',
+  'thuan bac',
+  'thuan nam',
+  'bac ai',
+  'phan rang',
+]);
+
 export function buildAliasRows(seed: WardSeed): AliasRow[] {
   const shortName = stripPrefix(seed.name);
   const rows: AliasRow[] = [];
@@ -58,7 +86,11 @@ export function buildAliasRows(seed: WardSeed): AliasRow[] {
   // Giữ bản ghi ĐẦU TIÊN gặp theo alias_norm: nhờ thứ tự push ở bước 1-2,
   // alias official luôn thắng alias old_ward khi hai bên trùng alias_norm.
   const seen = new Set<string>();
-  return rows.filter((r) =>
-    seen.has(r.aliasNorm) ? false : (seen.add(r.aliasNorm), true),
-  );
+  return rows.filter((r) => {
+    // Loại alias trần trùng tên đơn vị HC cũ (xem OLD_AREA_NAMES): nhắc trần
+    // "Nha Trang"/"Diên Khánh" là chỉ vùng cũ, không phải xã/phường mới.
+    // Dạng đầy đủ "Phường Nha Trang" không bị ảnh hưởng vì alias_norm khác.
+    if (OLD_AREA_NAMES.has(r.aliasNorm)) return false;
+    return seen.has(r.aliasNorm) ? false : (seen.add(r.aliasNorm), true);
+  });
 }

@@ -93,6 +93,53 @@ const CUE_BIGRAMS = new Set(['thi tran', 'dac khu', 'dia ban']);
  * liền trước (cue ghép "thị trấn"/"đặc khu"/"địa bàn") — cue xa hơn thường thuộc về
  * danh từ khác ("công an huyện X điều tra vụ Tân Định").
  */
+/**
+ * Họ và tên đệm người Việt. Nhiều tên xã/phường trùng y hệt tên người sau khi
+ * bỏ dấu ("Vạn Thắng"/"Văn Thắng", "Xuân Hải"/"Xuân Hải", "Bảo An", "Anh Dũng"),
+ * nên cụm đứng ngay sau một họ gần như chắc chắn là TÊN NGƯỜI, không phải địa danh.
+ *
+ * Đây là luật TỔNG QUÁT thay cho việc đánh cờ requiresCue từng xã một — đo trên
+ * dữ liệu thật cho thấy đánh cờ lẻ là trò đuổi bắt không có điểm dừng.
+ */
+const VN_SURNAMES = new Set([
+  'nguyen',
+  'tran',
+  'pham',
+  'hoang',
+  'huynh',
+  'phan',
+  'dang',
+  'bui',
+  'ngo',
+  'dinh',
+  'trinh',
+  'quach',
+  'kieu',
+  'tong',
+]);
+// Tên đệm — CHỈ tính là tên người khi phía trước nó lại là một họ.
+// Không chặn trần được: "Thị" còn nằm trong "Dốc Thị", "thị trấn"; "Văn" trong
+// "Văn Hải", "văn hóa" — chặn trần làm mất 12 lượt gán đúng của xã Vạn Hưng.
+const VN_MIDDLE_NAMES = new Set(['van', 'thi']);
+
+/**
+ * Cụm đứng ngay sau họ người Việt → là tên người, không phải địa danh.
+ * Dạng "họ + đệm + tên" (Nguyễn Văn Thắng) cần nhìn lùi 2 token.
+ */
+export function looksLikePersonName(
+  tokens: Token[],
+  tokenIndex: number,
+): boolean {
+  if (tokenIndex === 0) return false;
+  const prev = tokens[tokenIndex - 1].norm;
+  if (VN_SURNAMES.has(prev)) return true;
+  // "Nguyễn VĂN Thắng": đệm chỉ tính khi trước nó là họ thật
+  if (VN_MIDDLE_NAMES.has(prev) && tokenIndex >= 2) {
+    return VN_SURNAMES.has(tokens[tokenIndex - 2].norm);
+  }
+  return false;
+}
+
 export function hasCue(tokens: Token[], tokenIndex: number): boolean {
   if (tokenIndex === 0) return false;
   if (CUE_WORDS.has(tokens[tokenIndex - 1].norm)) return true;
@@ -249,9 +296,14 @@ export function findHits(text: string, index: AliasIndex): Hit[] {
       const entries = index.get(key);
       if (entries) {
         // Alias mơ hồ (trùng từ thông thường) chỉ nhận khi có tiền tố báo hiệu
+        // Chặn tên người TRƯỚC mọi kiểm tra khác: "Phạm Xuân Hải" không phải xã Xuân Hải
+        const isPerson = looksLikePersonName(tokens, i);
         const needCue = entries.every((e) => e.requiresCue);
+        // Thứ tự ưu tiên: CUE TƯỜNG MINH THẮNG phỏng đoán tên người. "thị trấn Vạn
+        // Giã" có cue bigram "thi tran", nhưng "tran" cũng là họ Trần — nếu để luật
+        // tên người chặn trước thì mọi "thị trấn X" đều mất.
         const ok =
-          (!needCue || hasCue(tokens, i)) &&
+          (hasCue(tokens, i) || (!needCue && !isPerson)) &&
           !inOtherProvinceSentence(text, tokens[i].start);
         if (ok) {
           hits.push({

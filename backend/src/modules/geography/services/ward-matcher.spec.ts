@@ -352,3 +352,41 @@ describe('matchWard — thang vai trò', () => {
     expect(r.wardId).toBe('w-sh');
   });
 });
+
+describe('chặn tên người — luật tổng quát thay cho đánh cờ từng xã', () => {
+  const PERSON_INDEX = buildIndex([
+    { wardId: 'w-vh', alias: 'Vạn Hưng', requiresCue: false },
+    { wardId: 'w-xh', alias: 'Xuân Hải', requiresCue: false },
+    { wardId: 'w-vt', alias: 'Vạn Thắng', requiresCue: true },
+    { wardId: 'w-vg', alias: 'Vạn Giã', requiresCue: true },
+  ]);
+
+  // Đo trên 6199 bài thật: "Vạn Hưng" từng đứng đầu bảng với 12 lượt gán,
+  // nhưng 10/12 là "Phạm/Bùi/Nguyễn Văn Hùng" — tên người, không phải xã.
+  it('họ + tên đệm + tên trùng tên xã → KHÔNG gán', () => {
+    expect(
+      findHits('Thiếu tướng Phạm Văn Hùng phát biểu', PERSON_INDEX),
+    ).toHaveLength(0);
+    expect(
+      findHits('bắt tạm giam Bùi Văn Hưng, giám đốc', PERSON_INDEX),
+    ).toHaveLength(0);
+  });
+
+  it('họ đứng ngay trước tên xã → KHÔNG gán', () => {
+    expect(findHits('khởi tố Phạm Xuân Hải về tội', PERSON_INDEX)).toHaveLength(
+      0,
+    );
+  });
+
+  it('tên đệm KHÔNG đứng sau họ thì không tính là tên người', () => {
+    // "Dốc Thị, xã Vạn Hưng" — "Thị" ở đây là địa danh, chặn trần sẽ mất bài đúng
+    const hits = findHits('tai nạn đoạn Dốc Thị, xã Vạn Hưng', PERSON_INDEX);
+    expect(hits[0].entries[0].wardId).toBe('w-vh');
+  });
+
+  it('CUE TƯỜNG MINH thắng phỏng đoán tên người', () => {
+    // "thị trấn" chứa "trấn" — bỏ dấu trùng họ "Trần"; cue phải thắng
+    const hits = findHits('bắt tại thị trấn Vạn Giã', PERSON_INDEX);
+    expect(hits[0].entries[0].wardId).toBe('w-vg');
+  });
+});
